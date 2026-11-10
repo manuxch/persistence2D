@@ -1,0 +1,47 @@
+# hyperuniform2D (https://github.com/manuxch/hyperuniform2D, v2.2.0) parameters of
+# examples/hyperuniform_phi0.40.pgm: a 128 x 128 stealthy hyperuniform pattern, density 0.4, chi = 0.3,
+# weight_power 2, seed 1729 (about one minute). Run from examples/:  hyper2D hyperuniform_phi0.40.hyper2D.in
+# The occupied sites (the obstacles) are written as 1 = white, so persistence2D needs `obstacle: light`.
+# Running it also writes the default annealing.dat and sk.dat.
+# --- System ---------------------------------------------------------------------------------
+# Lattice side (N x N sites, periodic)
+N: 128
+# Fraction of occupied sites; the number of occupied sites is round(density * N^2)
+density: 0.4
+# --- Mask (constrained wave vectors) --------------------------------------------------------
+# Stealthiness chi = (constrained half-plane modes) / (n - 1), n = min(occupied, empty).
+# chi > 0 derives the mask radius K from it. This lattice chi is about twice the point-pattern chi
+# of the continuum at the same K; kappa (see examples/) pairs patterns of different generators.
+chi: 0.3
+# Mask radius in units of 2pi/N, used instead of chi when chi = 0 (uncomment and set chi: 0)
+# K: 4.0
+# --- Annealing energy -----------------------------------------------------------------------
+# Mode weights w(k) ~ |k|^(-weight_power): 0 = standard unweighted energy; 2 keeps the residual
+# away from the longest wavelengths, which control the number variance at large R (recommended)
+weight_power: 2
+# --- Cooling schedule -----------------------------------------------------------------------
+# Initial temperature; <= 0 = automatic (a typical uphill swap is accepted with probability 1/2)
+T_initial: 0
+# Final temperature: the annealing stops below it
+T_final: 0.001
+# Geometric cooling factor per temperature level
+cooling_rate: 0.97
+# Swap proposals (occupied <-> empty) per temperature level
+steps_per_temp: 20000
+# Fraction of proposals that move a point to a nearby empty site, and "nearby" (Chebyshev distance)
+local_fraction: 0.5
+local_radius: 1
+# Zero-temperature proposals after the annealing (only downhill swaps)
+quench_steps: 400000
+# Stop as soon as the (weighted) energy is below this value
+energy_tol: 1e-6
+# --- Run ------------------------------------------------------------------------------------
+# Random seed (0 ... 2^32 - 1)
+seed: 1729
+# Threads: 0 = automatic (min(4, CPUs available to the process)), 1 = sequential
+num_threads: 0
+# --- Output files ---------------------------------------------------------------------------
+# Pattern (plain PGM, 1 = occupied; the header comments record the parameters and residuals)
+output_file: hyperuniform_phi0.40.pgm
+# Per temperature level: T, energy, cumulative and per-level acceptance
+# Radially averaged structure factor S(k) = |rho_hat(k)|^2 / M

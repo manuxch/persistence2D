@@ -1,0 +1,13 @@
+# An image that is not periodic: open boundaries, with the frame counting as an obstacle (as for a
+# micrograph of a confined sample), Euclidean widths and 8-connectivity of the free pixels.
+#   ./build/persistence2D examples/open_box.in
+input: examples/random_phi0.40.pgm
+obstacle: dark
+filtration: free
+metric: l2
+periodic: false
+boundary_obstacle: true
+connectivity: 8
+bars_file: results/open_box_bars.csv
+betti_file: results/open_box_betti.csv
+summary_file: results/open_box_summary.csv

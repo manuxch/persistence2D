@@ -1,0 +1,41 @@
+# persistence2D parameter file: "key: value", '#' starts a comment.
+# Run:   ./build/persistence2D params.in                 (maps from the `input` key)
+#        ./build/persistence2D params.in maps/*.pgm      (maps from the command line, replacing `input`)
+# Plot:  python3 scripts/plot_persistence.py examples/random_phi0.40.pgm --out random.png
+#
+# This example analyses the three dark-obstacle example maps with the defaults: free-space filtration,
+# L1 corridor width, periodic boundaries, 4-connectivity. See README.md for the definitions.
+
+# --- Input ------------------------------------------------------------------------------------------
+# Map files, separated by spaces. Formats are detected from the content: PBM (P1/P4), PGM (P2/P5),
+# chasers .map, or text rows of '.'/'0' (free) and '#'/'1' (obstacle).
+input: examples/random_phi0.40.pgm examples/blocks_q16.txt examples/channels.map
+# Which pixels of PBM/PGM images are obstacles: dark (black; PGM value <= maxval/2) or light.
+# Text and .map files have fixed symbols and ignore it.
+obstacle: dark
+
+# --- Filtration -------------------------------------------------------------------------------------
+# free:   superlevel sets of the corridor width w on the free sites, V_r = {free x : w(x) >= r}
+# signed: continued into the obstacles with -d, d = wall thickness, down to the whole domain
+filtration: free
+# Distance used for w (and d): l1 (lattice/Manhattan, integer widths) or l2 (Euclidean)
+metric: l1
+# Periodic boundaries (torus) in both directions; false = open box
+periodic: true
+# Open box only: the sites just outside the lattice count as obstacles for the distances
+boundary_obstacle: false
+# 4: free sites joined through shared edges (vertex construction, the 4-neighbourhood of lattice models)
+# 8: free sites are pixels and diagonal neighbours touch (top-cell construction)
+connectivity: 4
+
+# --- Run --------------------------------------------------------------------------------------------
+# Maps processed in parallel: 0 = all CPUs available to the process
+num_threads: 0
+
+# --- Output (CSV; an empty value skips the file; directories are created) ---------------------------
+# One row per persistence interval: file, dim, birth, death, persistence, essential, wraps
+bars_file: results/bars.csv
+# Betti numbers and wrap dimension of V_r at every distinct width r: file, r, beta0, beta1, wraps
+betti_file: results/betti.csv
+# One row of descriptors per map (see README.md, "Outputs")
+summary_file: results/summary.csv

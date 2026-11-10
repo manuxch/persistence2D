@@ -1,0 +1,11 @@
+# The random example with the signed filtration, to compare with examples/hyperuniform.in.
+#   ./build/persistence2D examples/random.in
+input: examples/random_phi0.40.pgm
+obstacle: dark
+filtration: signed
+metric: l1
+periodic: true
+connectivity: 4
+bars_file: results/random_bars.csv
+betti_file: results/random_betti.csv
+summary_file: results/random_summary.csv

@@ -1,0 +1,13 @@
+# The hyperuniform example (from hyperuniform2D, obstacles written as 1 = white) with the signed
+# filtration, compared with the random one of the same density. Run from the repository root:
+#   ./build/persistence2D examples/hyperuniform.in
+# (random_phi0.40.pgm has black obstacles, so it is analysed with params.in or examples/random.in.)
+input: examples/hyperuniform_phi0.40.pgm
+obstacle: light
+filtration: signed
+metric: l1
+periodic: true
+connectivity: 4
+bars_file: results/hyperuniform_bars.csv
+betti_file: results/hyperuniform_betti.csv
+summary_file: results/hyperuniform_summary.csv

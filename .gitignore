@@ -1,0 +1,15 @@
+# Build directories
+build/
+build-*/
+Testing/
+
+# Outputs of the examples and of plot_persistence.py run from the root
+results/
+/*.png
+/*.csv
+
+# Editors, caches
+*.swp
+.cache/
+__pycache__/
+compile_commands.json
