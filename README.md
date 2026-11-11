@@ -2,7 +2,7 @@
 
 **Version 0.2.0** — see [CHANGELOG.md](CHANGELOG.md).
 
-Persistent homology of the free space of two-dimensional binary maps
+Persistent homology of the free space of two-dimensional binary maps, and of continuum obstacle arrangements
 
 `persistence2D` is a C++20 program built on [GUDHI](https://gudhi.inria.fr). It describes the **shape of the free space** of 2D binary maps: lattices of obstacles and free sites such as porous media, obstacle fields for random walkers, binarized micrographs, or hyperuniform patterns. It filters the free space by **corridor width**, the distance from each free site to the nearest obstacle, and computes the persistent homology of that filtration on a cubical complex, periodic or not:
 
@@ -10,7 +10,7 @@ Persistent homology of the free space of two-dimensional binary maps
 - **H₁** gives the loops around obstacle clusters.
 - **Wrapping classes** on the torus tell how wide a corridor has to be for the free space to span the system in one or both directions.
 
-It reads PBM/PGM images, the `.map` files of the chasers simulations and plain text maps. It processes many maps in parallel and writes three CSV files: the persistence intervals, the Betti curves, and one row of descriptors per map. Python helpers read the outputs, vectorize the diagrams and draw summary figures.
+It reads PBM/PGM images, the `.map` files of the chasers simulations and plain text maps. It also works directly on **continuum obstacle arrangements** (hyperGalton2D `.obs` files: discs at real positions, no lattice), where it computes the persistent homology of the region a grain of a given size can reach, filtered by distance to the obstacles (`centres`) or by height under gravity (`height`, `height_exact`). The height filtration gives the depth of every V trap, the pocket between two obstacles where a grain comes to rest; see [Continuum arrangements](#continuum-arrangements-centres-height-and-height_exact). It processes many maps in parallel and writes three CSV files: the persistence intervals, the Betti curves, and one row of descriptors per map. Python helpers read the outputs, vectorize the diagrams and draw summary figures.
 
 <p align="center">
   <img src="docs/figures/blocks.png" width="640" alt="Four-panel summary of the blocks example: the map, its persistence diagram, Betti curves and wrap dimension">
@@ -29,6 +29,7 @@ It reads PBM/PGM images, the `.map` files of the chasers simulations and plain t
 - [Python scripts](#python-scripts)
 - [Examples](#examples)
 - [Analysis example: three maps at the same density](#analysis-example-three-maps-at-the-same-density)
+- [Continuum arrangements: `centres`, `height` and `height_exact`](#continuum-arrangements-centres-height-and-height_exact)
 - [Performance](#performance)
 - [Caveats](#caveats)
 - [Tests](#tests)
@@ -181,11 +182,15 @@ The parameter file has one `key: value` per line, and `#` starts a comment. Unkn
 |---|---|---|---|
 | `input` | file names, space-separated | — | Maps to analyse. The command line overrides it. |
 | `obstacle` | `dark`, `light` | `dark` | Which pixels of PBM/PGM images are obstacles. |
-| `filtration` | `free`, `signed` | `free` | Free space only, or continued into the obstacles. |
-| `metric` | `l1`, `l2` | `l1` | Distance for *w* (and for the wall thickness). |
-| `periodic` | `true`, `false` | `true` | Torus, or open box. |
+| `filtration` | `free`, `signed`, `centres`, `height`, `height_exact` | `free` | Free space only, or continued into the obstacles (maps); distance to the centres, or height of the accessible region (`.obs` files, see [below](#continuum-arrangements-centres-height-and-height_exact)). |
+| `metric` | `l1`, `l2` | `l1` | Distance for *w* (and for the wall thickness). Maps only. |
+| `periodic` | `true`, `false` | `true` | Torus, or open box. Maps only: an `.obs` file declares its own boundary. |
 | `boundary_obstacle` | `true`, `false` | `false` | Open box only: the sites just outside the lattice count as obstacles. |
 | `connectivity` | `4`, `8` | `4` | Vertex or top-cell construction (see above). |
+| `pixel` | length > 0 | `0.05` | `.obs` files, `centres` and `height`: side of the pixel, in the length unit of the file. The grid fits the box exactly. |
+| `grain` | length > 0 | `1` | `.obs` files: grain diameter *d*. |
+| `clearance` | length ≥ 0 | *R* + *d*/2 (`height`, `height_exact`), 0 (`centres`) | `.obs` files: smallest distance from a grain centre to an obstacle centre. |
+| `min_persistence` | length ≥ 0 | `0` | `.obs` files: drop bars shorter than this (essential bars are kept). `height_exact` ignores it. |
 | `num_threads` | integer ≥ 0 | `0` | Maps processed in parallel; `0` = all CPUs available to the process, which respects the affinity set by Slurm. |
 | `bars_file`, `betti_file`, `summary_file` | path, or empty | `bars.csv`, `betti.csv`, `summary.csv` | Outputs. An empty value skips the file, and directories are created. |
 
@@ -201,6 +206,9 @@ The format is detected from the content of the file, not from its extension.
 | PGM, plain (`P2`) or raw (`P5`), 8 or 16 bit | magic number | value *v* with 2*v* ≤ maxval (dark) if `obstacle: dark`, otherwise the light ones |
 | chasers map | first line `# chasers-map` | `#` (free `.`); `key: value` header up to `---`, checked against the `L` and `n_obs` keys |
 | text | anything else | `#` or `1` (free `.` or `0`); whitespace ignored, lines starting with `%` are comments |
+| hyperGalton2D `.obs` | first line `# format: 1` | discs of radius `R` at the listed centres; needs `filtration: centres`, `height` or `height_exact` (and those need an `.obs` file) |
+
+The `.obs` format is that of hyperGalton2D (`docs/formats/obstacles-format.pdf` there): a header of `# key: value` lines, then one `x y` centre per line. `persistence2D` reads `Lx`, `Ly`, `R`, `boundary` (`periodic_x` or `walls_x`) and, if present, checks `n_obstacles` against the number of rows; it does not verify the digest. [`examples/pair.obs`](examples/pair.obs) is a minimal file.
 
 Row *y* = 0 is the first row of the file, the top of the image. The site (*x*, *y*) has flat index *x* + *N*<sub>*x*</sub>*y*. Rectangular maps are allowed.
 
@@ -220,6 +228,9 @@ Every CSV file starts with two `#` lines, the program version with a description
 | `persistence` | *r*<sub>*b*</sub> − *r*<sub>*d*</sub>; `inf` for essential classes |
 | `essential` | 1 if the class never dies (in the free space for `free`, in the whole domain for `signed`) |
 | `wraps` | 1 for H₁ classes that wind around the torus |
+| `x`, `y`, `xs`, `ys` | continuum filtrations only: position of the birth cell and of the death cell (the saddle; `nan` if essential), in length units |
+
+For `height` and `height_exact` the filtration is by increasing height, so `birth` < `death` and `persistence` = `death` − `birth`; `persistence` is always the absolute difference.
 
 **`betti.csv`**: the Betti curves, with one row per distinct width *r* of the filtration, decreasing.
 
@@ -247,6 +258,8 @@ Every CSV file starts with two `#` lines, the program version with a description
 | `h1_*` | the same for H₁ |
 | `error` | empty, or why the map could not be analysed |
 
+For continuum filtrations (`format` is `obs-height`, `obs-height-exact` or `obs-centres`) `betti.csv` has only its header, and `summary.csv` fills only what applies: `nx`, `ny` and `n_free` (pixels in the filtration, 0 for `height_exact`), `phi` (fraction of pixels outside it) and the `h0_*` and `h1_*` statistics of the bars. The columns about the torus and the corridor width (`w_*`, `d_max`, `beta*`, `wrap_dim`, `r_*`, `branching`) are `nan` or 0.
+
 The distance field itself is not written. It is cheap to recompute: `scripts/plot_persistence.py` does it for display.
 
 ## Python scripts
@@ -272,6 +285,8 @@ img = p2d.persistence_image(b.diagram(0), p2d.image_grid(1, 4, 0, 3, 20), sigma=
 - the result is sampled at the pixel centres of the grid.
 
 Persistence images computed on a common grid can be compared across maps or fed to a regression.
+
+`read_bars` and `read_summary` also read the outputs of the continuum filtrations (the extra columns of `bars.csv` are ignored; read them with `pandas.read_csv(path, comment="#")` to get `x, y, xs, ys`). `read_map`, `width_field`, `plot_persistence.py` and `compare_maps.py` are for binary maps and do not read `.obs` files.
 
 **[`scripts/plot_persistence.py`](scripts/plot_persistence.py)** runs `persistence2D` on one map and draws the four-panel figure shown above: the map, the persistence diagram, the Betti curves and the wrap dimension.
 
@@ -363,45 +378,54 @@ The figure below compares three maps with the same obstacle fraction, 0.40. The 
 
 In maps like the last two, with structure at the scale of one lattice spacing, the informative quantities are the Betti numbers and the wrap dimension at *r* = 1 (see [Caveats](#caveats)).
 
-## Continuum arrangements: `height` and `centres`
+## Continuum arrangements: `centres`, `height` and `height_exact`
 
-For hyperGalton2D obstacle files (`.obs`, discs of radius R at continuous positions, periodic in x) the
-program can work directly on the arrangement. The format is detected from the first line, `# format: 1`.
+The obstacle arrangements of a granular simulation are not lattice maps: the obstacles are discs at real positions. For those, `persistence2D` works on the arrangement itself instead of on a rasterised image. The input is an [`.obs` file](#input-formats), and the three filtrations act on the region a grain can reach.
 
+### The accessible region
+
+A grain of diameter *d* touching an obstacle of radius *R* has its centre at distance ρ = *R* + *d*/2 from the obstacle centre. The centre of the grain can therefore be anywhere outside the union of the discs of radius ρ around the obstacle centres:
+
+<p align="center"><em>A</em> = { <b>x</b> : |<b>x</b> − <b>c</b><sub><i>i</i></sub>| ≥ ρ for every obstacle <i>i</i> }, &nbsp; ρ = <code>clearance</code> (default <i>R</i> + <i>d</i>/2)</p>
+
+Its pieces are what a grain can explore, and its holes are the obstacle clusters.
+
+### Filtrations
+
+- **`centres`**: superlevel sets of the distance to the nearest centre, *V*<sub>*r*</sub> = {**x**: dist(**x**, centres) ≥ *r*}, on a pixel grid. It is the width filtration of the free space with the obstacles reduced to points. By Alexander duality its H₀ and H₁ are the H₁ and H₀ of the alpha filtration of the centres: each chamber is born at the circumradius of a Delaunay triangle and dies at the half-length of the edge that opens it. The distance field has pixel noise, so use `min_persistence` of about two pixels.
+- **`height`**: sublevel sets {*y* ≤ *h*} of *A*, with gravity toward −*y*, on a pixel grid. The H₀ births are the local minima of *A*: the **V traps**, where a grain rests on two obstacles. The persistence of each is its **barrier**, the height the grain must climb to reach a lower basin. Essential H₀ bars are components of *A* that never join another: the lowest one and the voids closed by obstacles that nearly touch, which a grain cannot enter from outside.
+- **`height_exact`**: the same filtration with no pixel grid, for arrangements periodic in x. The V traps are the corners where two discs of radius ρ cross, and the barrier of each is found from the tops of the discs: a grain released at either side of a top slides down the arc, onto the next circle at each corner, or falls from the equator, until it rests at a V trap or leaves through the bottom of the strip. Processing the tops in order of height with union-find and the elder rule [[7]](#ref-elz) gives the H₀ pairs. Heights are exact. There is one bar per V trap; the unbounded component below the obstacles is the elder and has no bar. H₁ (loops around obstacles, all essential) is not reported.
+
+### Example
+
+[`examples/height.in`](examples/height.in) runs `height_exact` on [`examples/pair.obs`](examples/pair.obs), two obstacles 1 *d* apart:
+
+```bash
+./build/persistence2D examples/height.in
 ```
-filtration: height      # or height_exact, centres
-pixel: 0.05             # pixel side in the length unit of the file (the grid fits the box exactly)
-grain: 1                # grain diameter d
-clearance:              # optional; default R + grain/2 (height), 0 (centres)
-min_persistence: 0      # drop bars shorter than this (essential bars are kept)
-```
 
-- **`height`.** A grain of diameter *d* is restricted to *A* = {*x*: distance to every centre ≥ *R* + *d*/2}. The
-  filtration is the sublevel sets {*y* ≤ *h*} of *A* (gravity toward −*y*). Each H0 birth is a local minimum of *A*:
-  a V trap, a rest point on two obstacles. Its persistence is the height the grain must climb to reach a lower
-  basin. Essential H0 bars are the components of *A* that never join another: the global minimum plus voids
-  closed by touching inflated obstacles (a grain cannot enter them from outside).
-- **`centres`.** Superlevel sets of the distance to the nearest centre. H0 and H1 of that filtration are dual to
-  H1 and H0 of the alpha filtration of the centres (Alexander duality): chambers are born at the circumradius of
-  a Delaunay triangle and die at the half-length of the edge that opens them. Distance fields have pixel noise,
-  so use `min_persistence` of about two pixels.
-- **`height_exact`.** The same filtration without a pixel grid, for `.obs` files periodic in x. The V traps are
-  the corners where two inflated discs meet, and the barrier of each is found from the discs' tops: a grain
-  released at either side of a top slides down the arc, onto the next circle at each corner, or falls from an
-  equator, until it rests at a V trap or leaves through the bottom; the tops are then processed in order of
-  height with union-find and the elder rule. Heights are exact, there is one H0 bar per V trap (the bottom
-  of the strip is the unbounded elder component and has no bar), and closed voids give essential bars. It
-  takes milliseconds and no memory to speak of. On the 482 arrangements of hyperGalton2D's T1 study the number of
-  bars equals the V traps of `array_stats` in every file (142 294 in total), and the barriers agree with the
-  grid version to within its pixel. H1 is not reported. Use `height` (grid) to cross-check it.
-- `bars.csv` carries `x, y` (birth cell) and `xs, ys` (death cell, the saddle), in length units.
-- The `pixel` resolution is the accuracy of heights and positions, and features narrower than a pixel are lost:
-  a V trap between two obstacles that almost touch (pair distance close to 2(*R* + *d*/2)) has a pocket smaller
-  than the pixel, and a passage narrower than the pixel is closed. Compared with the exact V traps of one
-  stealthy arrangement (133 × 36 box, 250 traps), 160 are found within 0.1 at `pixel: 0.05` and 165 to 201 at
-  0.025, depending on `min_persistence`; the missing ones are the shallow pockets. Cost for that box: 9 s and
-  2.5 GB at 0.05, 39 s and 10 GB at 0.025 (the cubical complex is the memory-heavy part), so run few maps in
-  parallel (`num_threads`) at fine resolutions.
+A grain of diameter 1 rests at the cusp between them, *y* = 3 + √(0.7² − 0.5²) = 3.4899, and leaves over the top of the discs, *y* = 3.7. The result is one H₀ bar with `birth` 3.4899, `death` 3.7, `persistence` 0.2101 and the position of the trap, (`x`, `y`) = (5, 3.4899); the tests check it to 10⁻¹².
+
+### Resolution, cost and validation
+
+`centres` and `height` are as accurate as the pixel: heights and positions to about one pixel, and features narrower than a pixel are lost. A V trap between two obstacles that almost touch (pair distance close to 2ρ) has a pocket smaller than the pixel, and a passage narrower than the pixel is closed, which makes a spurious trap behind it. They also need memory for the cubical complex. `height_exact` has no resolution and costs milliseconds.
+
+| | `height` | `height_exact` |
+|---|---|---|
+| 320 × 75 box (4 800 obstacles), ρ = 0.7, 250 V traps | 9 s, 2.5 GB at `pixel: 0.05`; 39 s, 10 GB at 0.025 | 30 ms, 5 MB |
+| V traps found | 160 within 0.1 at 0.05; 165 to 201 at 0.025 | all |
+| 482 arrangements (boxes from 94 × 26 to 320 × 75) | — | 1 s on 12 threads |
+
+Validation of `height_exact` (tests and cross-checks, in the hyperGalton2D project):
+- the number of bars equals the number of V traps of its `array_stats` in each of 482 arrangements (142 294 in total), for stealthy hyperuniform patterns, perturbed lattices, random sequential adsorption, matched fluids and a lattice;
+- against `height` on a fine grid, the barriers agree within the pixel (94 % within 0.03 at `pixel: 0.025`).
+
+### Limits
+
+- `height_exact` needs `boundary: periodic_x`. `height` also accepts `walls_x`, where the two walls keep the grain centre at least *d*/2 away.
+- Gravity points toward −*y* and the region is not cut in *y*: below the lowest obstacle the strip is open (one unbounded component).
+- `height_exact` reports H₀ only.
+- `centres` and `height` with `periodic_x` are periodic in x and open in y; the width filtrations of binary maps (`free`, `signed`) have a single `periodic` flag for both directions.
 
 ## Performance
 
@@ -414,7 +438,7 @@ Measurements are on one core of a Ryzen 5 5600X, with obstacle fraction 0.4, `si
 | 512 × 512 | 0.32 s | 110 MB |
 | 1024 × 1024 | 1.4 s | 430 MB |
 
-Maps are processed in parallel. 200 maps of 120 × 120 take 2.7 s on one thread and 0.4 s on the 12 threads of the same machine.
+The continuum filtrations are in [their own section](#resolution-cost-and-validation). Maps are processed in parallel. 200 maps of 120 × 120 take 2.7 s on one thread and 0.4 s on the 12 threads of the same machine.
 
 ## Caveats
 
@@ -422,6 +446,7 @@ Maps are processed in parallel. 200 maps of 120 × 120 take 2.7 s on one thread 
 - **L1 widths are integers**, so many bars share the same birth and death. Use `metric: l2` for finer levels; the topology at *r* = 1 does not depend on the metric.
 - **`signed` mode has a gap at zero.** Free widths are ≥ 1 and wall thicknesses are ≥ 1, so there is no level *r* = 0. A bar that dies inside a wall of thickness *d* has persistence *r*<sub>*b*</sub> + *d*. Crossing the thinnest wall, from *r* = 1 to *r* = −1, already adds 2.
 - **Open boundaries** have no wrapping classes, so *r*\* and *r*<sub>wrap1</sub> are `nan`. Use `boundary_obstacle: true` when the frame of the image is a physical wall. Without it, the free space near the frame is as wide as its distance to the nearest obstacle inside the image.
+- **Continuum filtrations on a grid** (`centres`, `height`) are as accurate as the `pixel`; for V traps and their barriers prefer `height_exact`.
 - **The top dimension.** GUDHI's persistent cohomology skips the top dimension of the complex unless asked. `persistence2D` asks, so that the whole torus has β = (1, 2, 1).
 
 ## Tests
@@ -434,18 +459,22 @@ Maps are processed in parallel. 200 maps of 120 × 120 take 2.7 s on one thread 
 - **Signed versus free:** the two filtrations agree for *r* ≥ 1.
 - **Distances:** both transforms against brute force, periodic, open and with a boundary obstacle.
 - **Readers:** every input format reads the same map, a `.map` and its PGM give identical diagrams, and malformed headers and parameter files are rejected.
+- **Continuum:** the `.obs` reader and its errors; the distance to the centres against brute force (periodic and open); a pair of obstacles with an analytic cusp and barrier, on the grid (within a pixel) and exact (to 10⁻¹²); two stacked pairs; a triangular lattice whose chambers are born at *a*/√3 and die at *a*/2; and `height_exact` against a fine grid on a random arrangement.
 
 `tests/test_cli.py` is the end-to-end test of the executable and the Python scripts:
 - the values of the examples above;
 - error handling and exit codes;
 - `obstacle: light`;
-- the readers and figure script in `scripts/`.
+- the readers and figure script in `scripts/`;
+- the continuum filtrations on a small `.obs` file, and the errors for a mismatch between the file and the filtration.
 
 ## Roadmap
 
 - **Smoothed-field filtration:** superlevel sets of the local obstacle density averaged with a kernel of width σ, to resolve shape at scales of a few sites where the width filtration has too few levels.
 - **User-provided scalar fields:** sublevel or superlevel persistence of any field given on the lattice.
 - **Component and loop statistics at *r* = 1:** size distributions of the free clusters and of the loops.
+- **`height_exact` extensions:** H₁ with the winding classes told apart, and the `walls_x` boundary.
+- **Point-pattern persistence (decided, pending):** the alpha complex of the obstacle centres, periodic in x, to compare with `centres` without a grid. It will use GUDHI's `Alpha_complex`, which needs **CGAL** (Delaunay triangulation), as an **optional dependency** (a CMake option, off by default). CGAL is GPL-licensed, so a build with it is GPL as a whole and the default build stays MIT; the [License](#license) section will say so. hyperGalton2D already computes this filtration in `scripts/topology/alpha_persistence.py` (SciPy), cross-checked against GUDHI, which gives a reference for the tests.
 - **Three-dimensional maps.**
 
 ## References
@@ -461,7 +490,8 @@ Maps are processed in parallel. 200 maps of 120 × 120 take 2.7 s on one thread 
 9. <a id="ref-entropy"></a>H. Chintakunta, T. Gentimis, R. Gonzalez-Diaz, M.-J. Jimenez and H. Krim, *An entropy-based persistence barcode*, Pattern Recognition **48**, 391–401 (2015). [doi:10.1016/j.patcog.2014.06.023](https://doi.org/10.1016/j.patcog.2014.06.023)
 10. <a id="ref-pi"></a>H. Adams, T. Emerson, M. Kirby, R. Neville, C. Peterson, P. Shipman, S. Chepushtanova, E. Hanson, F. Motta and L. Ziegelmeier, *Persistence images: a stable vector representation of persistent homology*, Journal of Machine Learning Research **18**(8), 1–35 (2017). https://jmlr.org/papers/v18/16-337.html
 11. <a id="ref-otter"></a>N. Otter, M. A. Porter, U. Tillmann, P. Grindrod and H. A. Harrington, *A roadmap for the computation of persistent homology*, EPJ Data Science **6**, 17 (2017). [doi:10.1140/epjds/s13688-017-0109-5](https://doi.org/10.1140/epjds/s13688-017-0109-5). A practical introduction to the field and its software.
+12. <a id="ref-hg"></a>hyperGalton2D, the granular Galton board in Box2D whose obstacle arrangements and V traps this mode was built for: https://github.com/manuxch/hyperGalton2D
 
 ## License
 
-[MIT](LICENSE). GUDHI is distributed under the MIT license. Some GUDHI modules depend on CGAL, which is GPL-licensed. `persistence2D` uses none of them.
+[MIT](LICENSE). GUDHI is distributed under the MIT license. Some GUDHI modules depend on CGAL, which is GPL-licensed. `persistence2D` uses none of them. The planned alpha-complex mode (see the [Roadmap](#roadmap)) will need CGAL and will be an optional build.
