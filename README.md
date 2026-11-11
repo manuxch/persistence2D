@@ -474,7 +474,7 @@ The continuum filtrations are in [their own section](#resolution-cost-and-valida
 - **User-provided scalar fields:** sublevel or superlevel persistence of any field given on the lattice.
 - **Component and loop statistics at *r* = 1:** size distributions of the free clusters and of the loops.
 - **`height_exact` extensions:** H₁ with the winding classes told apart, and the `walls_x` boundary.
-- **Point-pattern persistence:** alpha or Rips complexes on the obstacle centres, to compare with `centres` without a grid.
+- **Point-pattern persistence (decided, pending):** the alpha complex of the obstacle centres, periodic in x, to compare with `centres` without a grid. It will use GUDHI's `Alpha_complex`, which needs **CGAL** (Delaunay triangulation), as an **optional dependency** (a CMake option, off by default). CGAL is GPL-licensed, so a build with it is GPL as a whole and the default build stays MIT; the [License](#license) section will say so. hyperGalton2D already computes this filtration in `scripts/topology/alpha_persistence.py` (SciPy), cross-checked against GUDHI, which gives a reference for the tests.
 - **Three-dimensional maps.**
 
 ## References
@@ -494,4 +494,4 @@ The continuum filtrations are in [their own section](#resolution-cost-and-valida
 
 ## License
 
-[MIT](LICENSE). GUDHI is distributed under the MIT license. Some GUDHI modules depend on CGAL, which is GPL-licensed. `persistence2D` uses none of them.
+[MIT](LICENSE). GUDHI is distributed under the MIT license. Some GUDHI modules depend on CGAL, which is GPL-licensed. `persistence2D` uses none of them. The planned alpha-complex mode (see the [Roadmap](#roadmap)) will need CGAL and will be an optional build.
