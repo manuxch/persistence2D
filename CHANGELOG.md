@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- README: the continuum filtrations in every section (introduction, key table, input formats, outputs, Python
+  helpers, performance, caveats, tests, roadmap, references) and a worked example, `examples/height.in` on
+  `examples/pair.obs`.
+
 ## [0.2.0] - 2026-11-11
 
 ### Added

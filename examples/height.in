@@ -1,0 +1,10 @@
+# Two obstacles 1 d apart (R = 0.2) in a 10 x 6 box, periodic in x: one V trap for a grain of diameter 1.
+# Run: ./build/persistence2D examples/height.in
+# Expected: one H0 bar, born at the cusp y = 3 + sqrt(0.7^2 - 0.5^2) = 3.4899, dying at the top of the discs,
+# y = 3.7: barrier 0.7 - sqrt(0.24) = 0.2101.
+input: examples/pair.obs
+filtration: height_exact
+grain: 1
+bars_file: results/pair_bars.csv
+betti_file:
+summary_file: results/pair_summary.csv

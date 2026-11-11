@@ -1,0 +1,12 @@
+# format: 1
+# generator: hand-made example (persistence2D); the digest is not checked by persistence2D
+# mode: continuum
+# class: pair
+# Lx: 10
+# Ly: 6
+# boundary: periodic_x
+# n_obstacles: 2
+# R: 0.2
+# columns: x y
+4.5 3
+5.5 3
