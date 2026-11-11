@@ -62,16 +62,17 @@ int main(int argc, char** argv) {
                 const std::string& file = p.inputs[i];
                 try {
                     const auto f = p.persistence.filtration;
-                    if (f == p2d::Filtration::height || f == p2d::Filtration::centres || f == p2d::Filtration::height_exact) {
-                        if (!p2d::is_obs_file(file)) throw std::runtime_error(file + ": filtration height/centres needs a .obs file");
+                    if (f == p2d::Filtration::height || f == p2d::Filtration::centres || f == p2d::Filtration::height_exact || f == p2d::Filtration::rips) {
+                        if (!p2d::is_obs_file(file)) throw std::runtime_error(file + ": filtration height/centres/rips needs a .obs file");
                         p2d::ContinuumOptions co = p.continuum;
                         co.mode = f == p2d::Filtration::height ? p2d::ContinuumMode::height
                                        : f == p2d::Filtration::height_exact ? p2d::ContinuumMode::height_exact
+                                                                            : f == p2d::Filtration::rips ? p2d::ContinuumMode::rips
                                                                             : p2d::ContinuumMode::centres;
                         results[i] = p2d::analyse_continuum(file, p2d::read_obs(file), co);
                         continue;
                     }
-                    if (p2d::is_obs_file(file)) throw std::runtime_error(file + ": an .obs file needs filtration height or centres");
+                    if (p2d::is_obs_file(file)) throw std::runtime_error(file + ": an .obs file needs filtration height, height_exact, centres or rips");
                     const auto fmt = p2d::detect_format(file);
                     const p2d::Grid g = p2d::read_grid(file, p.obstacle_color);
                     results[i] = p2d::analyse(file, g, p.persistence, p2d::format_name(fmt));

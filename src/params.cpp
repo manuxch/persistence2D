@@ -73,8 +73,9 @@ Params parse_params(const std::string& text, const std::string& origin) {
             else if (value == "height") p.persistence.filtration = Filtration::height;
             else if (value == "centres") p.persistence.filtration = Filtration::centres;
             else if (value == "height_exact") p.persistence.filtration = Filtration::height_exact;
-            else throw std::runtime_error(std::format("{}: filtration must be free, signed, height, height_exact or centres", where));
-        } else if (key == "pixel" || key == "grain" || key == "clearance" || key == "min_persistence") {
+            else if (value == "rips") p.persistence.filtration = Filtration::rips;
+            else throw std::runtime_error(std::format("{}: filtration must be free, signed, height, height_exact, centres or rips", where));
+        } else if (key == "pixel" || key == "grain" || key == "clearance" || key == "min_persistence" || key == "max_radius") {
             double v;
             try {
                 std::size_t used = 0;
@@ -83,9 +84,11 @@ Params parse_params(const std::string& text, const std::string& origin) {
             } catch (const std::exception&) {
                 throw std::runtime_error(std::format("{}: expected a number, got '{}'", where, value));
             }
-            if (key == "clearance" || key == "min_persistence" ? v < 0 : !(v > 0))
-                throw std::runtime_error(std::format("{}: {} must be {}", where, key, key == "clearance" || key == "min_persistence" ? "non-negative" : "positive"));
-            (key == "pixel" ? p.continuum.pixel : key == "grain" ? p.continuum.grain : key == "clearance" ? p.continuum.clearance : p.continuum.min_persistence) = v;
+            const bool nonneg = key == "clearance" || key == "min_persistence" || key == "max_radius";
+            if (nonneg ? v < 0 : !(v > 0))
+                throw std::runtime_error(std::format("{}: {} must be {}", where, key, nonneg ? "non-negative" : "positive"));
+            (key == "pixel" ? p.continuum.pixel : key == "grain" ? p.continuum.grain : key == "clearance" ? p.continuum.clearance
+             : key == "max_radius" ? p.continuum.max_radius : p.continuum.min_persistence) = v;
         } else if (key == "periodic") {
             p.persistence.distance.periodic = to_bool(value, where);
         } else if (key == "boundary_obstacle") {
@@ -123,6 +126,9 @@ Params read_params(const std::string& path) {
 std::string describe(const Params& p) {
     const auto& d = p.persistence.distance;
     const auto f = p.persistence.filtration;
+    if (f == Filtration::rips)
+        return std::format("filtration=rips max_radius={}",
+                           p.continuum.max_radius > 0 ? std::format("{}", p.continuum.max_radius) : std::string("auto"));
     if (f == Filtration::height || f == Filtration::centres || f == Filtration::height_exact)
         return std::format("filtration={} pixel={} grain={} clearance={} min_persistence={}",
                            f == Filtration::height ? "height" : f == Filtration::height_exact ? "height_exact" : "centres", p.continuum.pixel, p.continuum.grain,

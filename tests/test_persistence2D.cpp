@@ -7,7 +7,9 @@
 #include "output.hpp"
 #include "params.hpp"
 #include "persistence.hpp"
+#include "rips.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -501,6 +503,120 @@ void test_continuum() {
     }
 }
 
+void test_rips() {
+    std::cout << "rips\n";
+    auto make = [](double Lx, double Ly, bool periodic, std::vector<std::array<double, 2>> c) {
+        ObsFile o;
+        o.Lx = Lx;
+        o.Ly = Ly;
+        o.R = 0.2;
+        o.periodic_x = periodic;
+        o.centres = std::move(c);
+        return o;
+    };
+    auto finite = [](const std::vector<Bar>& b, int dim) {
+        std::vector<Bar> v;
+        for (const auto& x : b) if (x.dim == dim && !x.essential) v.push_back(x);
+        return v;
+    };
+    auto n_ess = [](const std::vector<Bar>& b, int dim) {
+        int n = 0;
+        for (const auto& x : b) n += x.dim == dim && x.essential;
+        return n;
+    };
+
+    // Two points at distance 1: one H0 bar born at 0, dead at the radius 1/2, at the midpoint of the edge.
+    auto b = rips_persistence(make(10, 6, true, {{4.5, 3}, {5.5, 3}}), 1.0);
+    auto f0 = finite(b, 0);
+    check(f0.size() == 1 && n_ess(b, 0) == 1 && n_ess(b, 1) == 0 && finite(b, 1).empty(), "pair: one finite and one essential H0, no H1");
+    check(f0.size() == 1 && std::abs(f0[0].birth) < 1e-15 && std::abs(f0[0].death - 0.5) < 1e-12 && std::abs(f0[0].xs - 5.0) < 1e-12 &&
+              std::abs(f0[0].ys - 3.0) < 1e-12,
+          "pair: bar [0, 1/2) with the death cell at the midpoint of the edge");
+
+    // Minimum image in x: 0.2 and 9.8 in a box of width 10 are 0.4 apart; with walls they are 9.6 apart.
+    b = rips_persistence(make(10, 6, true, {{0.2, 3}, {9.8, 3}}), 0.5);
+    f0 = finite(b, 0);
+    check(f0.size() == 1 && std::abs(f0[0].death - 0.2) < 1e-12 && std::abs(f0[0].xs) < 1e-12, "periodic: minimum image across x = 0 (midpoint at x = 0)");
+    b = rips_persistence(make(10, 6, false, {{0.2, 3}, {9.8, 3}}), 0.5);
+    check(finite(b, 0).empty() && n_ess(b, 0) == 2, "walls_x: no wrap, two components");
+
+    // Unit square: four edges of length 1 close a loop at 1/2; the diagonals (sqrt 2) fill it at sqrt(2)/2.
+    b = rips_persistence(make(20, 20, true, {{5, 5}, {6, 5}, {6, 6}, {5, 6}}), 1.0);
+    auto f1 = finite(b, 1);
+    check(finite(b, 0).size() == 3 && n_ess(b, 0) == 1, "square: three finite H0 bars and one essential");
+    check(f1.size() == 1 && std::abs(f1[0].birth - 0.5) < 1e-12 && std::abs(f1[0].death - std::sqrt(0.5)) < 1e-12,
+          "square: H1 bar [1/2, sqrt(2)/2)");
+    check(f1.size() == 1 && std::abs(f1[0].x - 5.5) < 1e-12 + 0.5 && f1[0].xs > 5.0 && f1[0].xs < 6.0 && f1[0].ys > 5.0 && f1[0].ys < 6.0,
+          "square: killing triangle inside the square");
+
+    // Truncation: with max_radius below sqrt(2)/2 the loop is still alive and the bar is essential.
+    b = rips_persistence(make(20, 20, true, {{5, 5}, {6, 5}, {6, 6}, {5, 6}}), 0.6);
+    check(n_ess(b, 1) == 1 && finite(b, 1).empty(), "square, max_radius 0.6: the loop is essential");
+
+    // Triangular lattice, a = 1, on a cylinder: every H0 bar dies at 1/2 and the only loop is the one around x.
+    {
+        std::vector<std::array<double, 2>> c;
+        for (int j = 0; j < 6; ++j)
+            for (int i = 0; i < 8; ++i) c.push_back({i + (j % 2 ? 0.5 : 0.0), 1.0 + j * std::sqrt(3.0) / 2});
+        b = rips_persistence(make(8, 8, true, c), 1.0);
+        bool all_half = true;
+        for (const auto& x : finite(b, 0)) all_half = all_half && std::abs(x.death - 0.5) < 1e-12;
+        check(finite(b, 0).size() == c.size() - 1 && all_half && n_ess(b, 0) == 1, "lattice: N - 1 H0 bars all dying at a/2");
+        check(finite(b, 1).empty() && n_ess(b, 1) == 1, "lattice: no finite H1 (all triangles fill at a/2); one loop around x");
+    }
+
+    // Random points: the finite H0 deaths are half the edges of the minimum spanning tree (Prim, brute force).
+    {
+        std::mt19937 rng(11);
+        std::uniform_real_distribution<double> ux(0, 12), uy(0, 8);
+        std::vector<std::array<double, 2>> c;
+        for (int i = 0; i < 120; ++i) c.push_back({ux(rng), uy(rng)});
+        const ObsFile o = make(12, 8, true, c);
+        auto d = [&](std::size_t i, std::size_t j) {
+            double dx = c[j][0] - c[i][0];
+            dx -= 12 * std::round(dx / 12);
+            return std::hypot(dx, c[j][1] - c[i][1]);
+        };
+        std::vector<double> key(c.size(), 1e300), mst;
+        std::vector<char> in(c.size(), 0);
+        key[0] = 0;
+        for (std::size_t it = 0; it < c.size(); ++it) {
+            std::size_t u = c.size();
+            for (std::size_t i = 0; i < c.size(); ++i) if (!in[i] && (u == c.size() || key[i] < key[u])) u = i;
+            in[u] = 1;
+            if (it) mst.push_back(key[u]);
+            for (std::size_t i = 0; i < c.size(); ++i) if (!in[i]) key[i] = std::min(key[i], d(u, i));
+        }
+        std::sort(mst.begin(), mst.end());
+        b = rips_persistence(o, 2.9);   // 4 * 2.9 < 12, and above every MST edge / 2 for 120 points in 96 units of area
+        std::vector<double> got;
+        for (const auto& x : finite(b, 0)) got.push_back(2 * x.death);
+        std::sort(got.begin(), got.end());
+        bool same = got.size() == mst.size();
+        for (std::size_t i = 0; same && i < got.size(); ++i) same = std::abs(got[i] - mst[i]) < 1e-12;
+        check(same && n_ess(b, 0) == 1, "random: finite H0 deaths = half the minimum-spanning-tree edges");
+        bool ok = true;
+        for (const auto& x : finite(b, 1)) ok = ok && x.persistence() > 0 && x.birth > 0;
+        check(ok, "random: H1 bars have positive length");
+    }
+
+    // Errors and parameters.
+    auto throws = [&](const ObsFile& o, double r) {
+        try { rips_persistence(o, r); } catch (const std::invalid_argument&) { return true; }
+        return false;
+    };
+    check(throws(make(10, 6, true, {{1, 1}, {2, 2}}), 2.5), "rips: max_radius too large for the periodic box");
+    check(throws(make(10, 6, true, {}), 1.0), "rips: empty arrangement");
+    check(std::abs(rips_default_radius(make(10, 6, true, {{1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}, {6, 5}})) - 1.5 * std::sqrt(10.0)) < 1e-12,
+          "rips: default radius = 1.5 x mean spacing");
+    const Params p = parse_params("filtration: rips\nmax_radius: 1.25\n");
+    check(p.persistence.filtration == Filtration::rips && p.continuum.max_radius == 1.25 && describe(p) == "filtration=rips max_radius=1.25",
+          "params: filtration rips, max_radius");
+    bool bad = false;
+    try { parse_params("max_radius: -1\n"); } catch (const std::runtime_error&) { bad = true; }
+    check(bad, "params: negative max_radius is an error");
+}
+
 int main() {
     try {
         test_empty_torus();
@@ -513,6 +629,7 @@ int main() {
         test_readers();
         test_quantile_and_params();
         test_continuum();
+        test_rips();
     } catch (const std::exception& e) {
         std::cout << "  FAIL exception: " << e.what() << '\n';
         ++failures;

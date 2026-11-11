@@ -122,6 +122,17 @@ with tempfile.TemporaryDirectory(prefix="p2d_cli_") as t:
     check(r.returncode == 1 and "needs a .obs" in r.stderr, "height on a text map is an error")
     r = run(tmp, "filtration: free\n", obs)
     check(r.returncode == 1 and "needs filtration height" in r.stderr, "an .obs file with filtration free is an error")
+    r = run(tmp, "filtration: rips\nmax_radius: 1\nbars_file: r/bars.csv\nbetti_file:\nsummary_file: r/summary.csv\n", obs)
+    rows = list(csv.DictReader(l for l in (tmp / "r/bars.csv").read_text().splitlines() if not l.startswith("#")))
+    fin = [x for x in rows if x["essential"] == "0"]
+    check(r.returncode == 0 and len(fin) == 1 and abs(float(fin[0]["persistence"]) - 0.5) < 1e-12 and abs(float(fin[0]["xs"]) - 5.0) < 1e-12,
+          f"rips: one H0 bar of persistence 1/2 at the midpoint ({r.stderr.strip()})")
+    summ = list(csv.DictReader(l for l in (tmp / "r/summary.csv").read_text().splitlines() if not l.startswith("#")))
+    check(summ[0]["format"] == "obs-rips" and summ[0]["h0_n"] == "1" and summ[0]["h0_essential"] == "1", "rips: summary row (format obs-rips, 1 finite + 1 essential H0)")
+    r = run(tmp, "filtration: rips\nmax_radius: 3\n", obs)
+    check(r.returncode == 1 and "too large" in r.stderr, "rips: max_radius too large for the box is an error")
+    r = run(tmp, "filtration: rips\n", examples / "blocks_q16.txt")
+    check(r.returncode == 1 and "needs a .obs" in r.stderr, "rips on a text map is an error")
 
 
 print("all checks passed" if not failures else f"{failures} check(s) failed")
