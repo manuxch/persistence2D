@@ -21,6 +21,8 @@ constexpr double kSentinel = 0.0;
 }  // namespace
 
 PersistenceResult compute_persistence(const Grid& g, const PersistenceOptions& opt) {
+    if (opt.filtration == Filtration::height || opt.filtration == Filtration::centres)
+        throw std::invalid_argument("height and centres are continuum filtrations of .obs files");
     if (opt.connectivity != 4 && opt.connectivity != 8)
         throw std::invalid_argument("connectivity must be 4 or 8");
     if (g.nx < 2 || g.ny < 2) throw std::invalid_argument("the lattice must be at least 2 x 2");

@@ -50,19 +50,43 @@ MapResult analyse(const std::string& file, const Grid& g, const PersistenceOptio
     return m;
 }
 
+MapResult analyse_continuum(const std::string& file, const ObsFile& obs, const ContinuumOptions& opt) {
+    MapResult m;
+    m.file = file;
+    m.format = opt.mode == ContinuumMode::height ? "obs-height" : "obs-centres";
+    ContinuumResult r = compute_continuum(obs, opt);
+    m.nx = r.nx;
+    m.ny = r.ny;
+    m.has_positions = true;
+    constexpr double nan = std::numeric_limits<double>::quiet_NaN();
+    Summary& s = m.summary;
+    s.n_free = r.n_access;
+    s.phi = 1.0 - static_cast<double>(r.n_access) / static_cast<double>(r.nx * r.ny);
+    s.w_max = s.w_mean = s.r_min = s.r_wrap1 = s.r_star = s.branching = nan;
+    s.h0 = summarize_dim(r.bars, 0, r.n_access);
+    s.h1 = summarize_dim(r.bars, 1, r.n_access);
+    m.bars = std::move(r.bars);
+    return m;
+}
+
 void write_bars(const std::string& path, const std::vector<MapResult>& results, const std::string& options) {
     if (path.empty()) return;
     auto out = open_csv(path, options,
-                        "persistence intervals of the superlevel filtration of the (signed) corridor width w; "
+                        "persistence intervals (width: superlevel filtration of the corridor width w; height: sublevel sets of y on the accessible region; "
+                        "x, y = birth cell, xs, ys = death cell, only for the continuum filtrations); "
                         "death = inf for essential classes; wraps = 1 for H1 classes winding around the torus");
-    out << "file,dim,birth,death,persistence,essential,wraps\n";
+    bool pos = false;
+    for (const auto& m : results) pos = pos || m.has_positions;
+    out << "file,dim,birth,death,persistence,essential,wraps" << (pos ? ",x,y,xs,ys" : "") << '\n';
     for (const auto& m : results) {
         if (!m.error.empty()) continue;
         const std::string f = field(m.file);
         for (const auto& b : m.bars) {
             const double inf = std::numeric_limits<double>::infinity();
             out << f << ',' << b.dim << ',' << num(b.birth) << ',' << num(b.essential ? inf : b.death) << ','
-                << num(b.essential ? inf : b.persistence()) << ',' << int(b.essential) << ',' << int(b.wraps) << '\n';
+                << num(b.essential ? inf : b.persistence()) << ',' << int(b.essential) << ',' << int(b.wraps);
+            if (pos) out << ',' << num(b.x) << ',' << num(b.y) << ',' << num(b.xs) << ',' << num(b.ys);
+            out << '\n';
         }
     }
 }

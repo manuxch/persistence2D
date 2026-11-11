@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-11
+
+### Added
+
+- Continuum input: hyperGalton2D `.obs` files (format 1, `periodic_x` or `walls_x`), read by `read_obs`; the
+  distance from each pixel to the exact obstacle centres is taken on a fine grid (`pixel`), periodic in x only.
+- Filtration `height`: sublevel sets of y on the region a grain of diameter `grain` can reach (distance to every
+  centre >= `clearance`, default R + grain/2). H0 births are the local minima of that region, the V traps
+  (gravity toward -y); the persistence of each is the height the grain must climb to reach a lower basin.
+- Filtration `centres`: superlevel sets of the distance to the nearest centre, dual to the alpha filtration of
+  the centres (H0 here is H1 there).
+- `bars.csv` gains `x,y,xs,ys` (birth and death cell positions) when a continuum filtration is used.
+- Keys `pixel`, `grain`, `clearance`, `min_persistence`.
+- Tests: reader, distance against brute force, a V trap with an analytic cusp and barrier, a triangular lattice
+  with chambers at a/sqrt(3) dying at a/2.
+
+### Changed
+
+- `Bar::persistence()` is `|birth - death|`, so it also holds for sublevel (height) bars.
+
 ## [0.1.0] - 2026-11-10
 
 First version.
@@ -30,4 +50,5 @@ First version.
 - Tests: hand-computable topology, Euler characteristic at every level of random maps, distance
   transforms against brute force, readers, and an end-to-end test of the executable and scripts.
 
+[0.2.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.2.0
 [0.1.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.1.0

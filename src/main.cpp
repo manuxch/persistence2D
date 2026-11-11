@@ -9,6 +9,7 @@
 #include <exception>
 #include <format>
 #include <iostream>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -60,6 +61,15 @@ int main(int argc, char** argv) {
             for (std::size_t i; (i = next.fetch_add(1)) < n;) {
                 const std::string& file = p.inputs[i];
                 try {
+                    const auto f = p.persistence.filtration;
+                    if (f == p2d::Filtration::height || f == p2d::Filtration::centres) {
+                        if (!p2d::is_obs_file(file)) throw std::runtime_error(file + ": filtration height/centres needs a .obs file");
+                        p2d::ContinuumOptions co = p.continuum;
+                        co.mode = f == p2d::Filtration::height ? p2d::ContinuumMode::height : p2d::ContinuumMode::centres;
+                        results[i] = p2d::analyse_continuum(file, p2d::read_obs(file), co);
+                        continue;
+                    }
+                    if (p2d::is_obs_file(file)) throw std::runtime_error(file + ": an .obs file needs filtration height or centres");
                     const auto fmt = p2d::detect_format(file);
                     const p2d::Grid g = p2d::read_grid(file, p.obstacle_color);
                     results[i] = p2d::analyse(file, g, p.persistence, p2d::format_name(fmt));
