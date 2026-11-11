@@ -53,7 +53,8 @@ MapResult analyse(const std::string& file, const Grid& g, const PersistenceOptio
 MapResult analyse_continuum(const std::string& file, const ObsFile& obs, const ContinuumOptions& opt) {
     MapResult m;
     m.file = file;
-    m.format = opt.mode == ContinuumMode::height ? "obs-height" : opt.mode == ContinuumMode::height_exact ? "obs-height-exact" : "obs-centres";
+    m.format = opt.mode == ContinuumMode::height ? "obs-height" : opt.mode == ContinuumMode::height_exact ? "obs-height-exact"
+                 : opt.mode == ContinuumMode::rips ? "obs-rips" : "obs-centres";
     ContinuumResult r = compute_continuum(obs, opt);
     m.nx = r.nx;
     m.ny = r.ny;

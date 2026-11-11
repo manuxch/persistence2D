@@ -28,7 +28,7 @@ ObsFile read_obs(const std::string& path);      // throws std::runtime_error wit
 //          height the grain must climb to reach a lower basin. clearance defaults to R + grain/2.
 // centres: the superlevel filtration of the distance to the nearest centre, V_r = {x : dist >= r}; H0 and H1
 //          of V_r are dual to H1 and H0 of the alpha filtration of the centres (bars are in radius units).
-enum class ContinuumMode { height, centres, height_exact };
+enum class ContinuumMode { height, centres, height_exact, rips };
 
 struct ContinuumOptions {
     ContinuumMode mode = ContinuumMode::height;
@@ -38,6 +38,7 @@ struct ContinuumOptions {
     // Bars shorter than this are dropped (essential bars are kept). 0 keeps everything; a couple of pixels removes
     // the discretisation noise of the distance field (`centres`), but also the shallowest traps (`height`).
     double min_persistence = 0.0;
+    double max_radius = 0.0;     // rips only: largest radius of the complex; 0 = 1.5 times the mean spacing
 };
 
 struct ContinuumResult {

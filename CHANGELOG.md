@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-11
+
+### Added
+
+- Filtration `rips`: Vietoris–Rips persistence (H0 and H1) of the obstacle centres of a `.obs` file, by radius
+  (half the edge length, the scale of `centres` and of the alpha complex), with the minimum image in x for
+  `periodic_x`. New key `max_radius` (default 1.5 times the mean spacing). Bars carry positions (birth and death
+  cells); H0 are the edges of the minimum spanning tree. Header-only GUDHI and Boost: default build, MIT.
+- Tests: pair, minimum image, unit square, truncation, triangular lattice, H0 against Prim's spanning tree, errors;
+  CLI test on `.obs`.
+
 ### Changed
 
 - README: the continuum filtrations in every section (introduction, key table, input formats, outputs, Python
@@ -61,5 +72,6 @@ First version.
 - Tests: hand-computable topology, Euler characteristic at every level of random maps, distance
   transforms against brute force, readers, and an end-to-end test of the executable and scripts.
 
+[0.3.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.3.0
 [0.2.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.2.0
 [0.1.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.1.0
