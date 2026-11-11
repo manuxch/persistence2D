@@ -1,6 +1,6 @@
 # persistence2D
 
-**Version 0.1.0** — see [CHANGELOG.md](CHANGELOG.md).
+**Version 0.2.0** — see [CHANGELOG.md](CHANGELOG.md).
 
 Persistent homology of the free space of two-dimensional binary maps
 
@@ -363,6 +363,46 @@ The figure below compares three maps with the same obstacle fraction, 0.40. The 
 
 In maps like the last two, with structure at the scale of one lattice spacing, the informative quantities are the Betti numbers and the wrap dimension at *r* = 1 (see [Caveats](#caveats)).
 
+## Continuum arrangements: `height` and `centres`
+
+For hyperGalton2D obstacle files (`.obs`, discs of radius R at continuous positions, periodic in x) the
+program can work directly on the arrangement. The format is detected from the first line, `# format: 1`.
+
+```
+filtration: height      # or height_exact, centres
+pixel: 0.05             # pixel side in the length unit of the file (the grid fits the box exactly)
+grain: 1                # grain diameter d
+clearance:              # optional; default R + grain/2 (height), 0 (centres)
+min_persistence: 0      # drop bars shorter than this (essential bars are kept)
+```
+
+- **`height`.** A grain of diameter *d* is restricted to *A* = {*x*: distance to every centre ≥ *R* + *d*/2}. The
+  filtration is the sublevel sets {*y* ≤ *h*} of *A* (gravity toward −*y*). Each H0 birth is a local minimum of *A*:
+  a V trap, a rest point on two obstacles. Its persistence is the height the grain must climb to reach a lower
+  basin. Essential H0 bars are the components of *A* that never join another: the global minimum plus voids
+  closed by touching inflated obstacles (a grain cannot enter them from outside).
+- **`centres`.** Superlevel sets of the distance to the nearest centre. H0 and H1 of that filtration are dual to
+  H1 and H0 of the alpha filtration of the centres (Alexander duality): chambers are born at the circumradius of
+  a Delaunay triangle and die at the half-length of the edge that opens them. Distance fields have pixel noise,
+  so use `min_persistence` of about two pixels.
+- **`height_exact`.** The same filtration without a pixel grid, for `.obs` files periodic in x. The V traps are
+  the corners where two inflated discs meet, and the barrier of each is found from the discs' tops: a grain
+  released at either side of a top slides down the arc, onto the next circle at each corner, or falls from an
+  equator, until it rests at a V trap or leaves through the bottom; the tops are then processed in order of
+  height with union-find and the elder rule. Heights are exact, there is one H0 bar per V trap (the bottom
+  of the strip is the unbounded elder component and has no bar), and closed voids give essential bars. It
+  takes milliseconds and no memory to speak of. On the 482 arrangements of hyperGalton2D's T1 study the number of
+  bars equals the V traps of `array_stats` in every file (142 294 in total), and the barriers agree with the
+  grid version to within its pixel. H1 is not reported. Use `height` (grid) to cross-check it.
+- `bars.csv` carries `x, y` (birth cell) and `xs, ys` (death cell, the saddle), in length units.
+- The `pixel` resolution is the accuracy of heights and positions, and features narrower than a pixel are lost:
+  a V trap between two obstacles that almost touch (pair distance close to 2(*R* + *d*/2)) has a pocket smaller
+  than the pixel, and a passage narrower than the pixel is closed. Compared with the exact V traps of one
+  stealthy arrangement (133 × 36 box, 250 traps), 160 are found within 0.1 at `pixel: 0.05` and 165 to 201 at
+  0.025, depending on `min_persistence`; the missing ones are the shallow pockets. Cost for that box: 9 s and
+  2.5 GB at 0.05, 39 s and 10 GB at 0.025 (the cubical complex is the memory-heavy part), so run few maps in
+  parallel (`num_threads`) at fine resolutions.
+
 ## Performance
 
 Measurements are on one core of a Ryzen 5 5600X, with obstacle fraction 0.4, `signed` filtration and L1 distance. The `free` filtration takes about the same time.
@@ -406,7 +446,6 @@ Maps are processed in parallel. 200 maps of 120 × 120 take 2.7 s on one thread 
 - **Smoothed-field filtration:** superlevel sets of the local obstacle density averaged with a kernel of width σ, to resolve shape at scales of a few sites where the width filtration has too few levels.
 - **User-provided scalar fields:** sublevel or superlevel persistence of any field given on the lattice.
 - **Component and loop statistics at *r* = 1:** size distributions of the free clusters and of the loops.
-- **Point-pattern persistence:** Rips or alpha complexes on obstacle positions, the usual tool for hyperuniform point patterns.
 - **Three-dimensional maps.**
 
 ## References

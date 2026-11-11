@@ -1,6 +1,7 @@
 // Parameter file: "key: value" lines, '#' starts a comment.
 #pragma once
 
+#include "continuum.hpp"
 #include "grid.hpp"
 #include "persistence.hpp"
 
@@ -13,6 +14,7 @@ struct Params {
     std::vector<std::string> inputs;   // map files (the command line overrides `input`)
     ObstacleColor obstacle_color = ObstacleColor::dark;
     PersistenceOptions persistence;    // metric, periodic, boundary_obstacle, connectivity
+    ContinuumOptions continuum;        // pixel, grain, clearance (filtrations height and centres)
     std::string bars_file = "bars.csv";
     std::string betti_file = "betti.csv";
     std::string summary_file = "summary.csv";

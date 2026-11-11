@@ -11,6 +11,8 @@ namespace {
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
+}  // namespace
+
 DimSummary summarize_dim(const std::vector<Bar>& bars, int dim, std::size_t n_free) {
     DimSummary s;
     std::vector<double> p;
@@ -35,8 +37,6 @@ DimSummary summarize_dim(const std::vector<Bar>& bars, int dim, std::size_t n_fr
     }
     return s;
 }
-
-}  // namespace
 
 double quantile(std::vector<double> v, double q) {
     if (v.empty()) return kNaN;

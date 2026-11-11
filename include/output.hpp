@@ -1,6 +1,7 @@
 // CSV outputs. Every file starts with '#' comment lines (program version and options), then a header row.
 #pragma once
 
+#include "continuum.hpp"
 #include "descriptors.hpp"
 #include "grid.hpp"
 #include "persistence.hpp"
@@ -19,10 +20,14 @@ struct MapResult {
     std::vector<Bar> bars;
     std::vector<double> levels;  // decreasing
     Summary summary;
+    bool has_positions = false;  // bars carry the (x, y) of their cells (continuum filtrations)
     std::string error;           // non-empty if the map could not be processed
 };
 
 MapResult analyse(const std::string& file, const Grid& g, const PersistenceOptions& opt, const std::string& format);
+
+// Continuum filtrations (height, centres) of a .obs arrangement.
+MapResult analyse_continuum(const std::string& file, const ObsFile& obs, const ContinuumOptions& opt);
 
 // Empty path = do not write that file.
 void write_bars(const std::string& path, const std::vector<MapResult>& results, const std::string& options);

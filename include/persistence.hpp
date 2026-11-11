@@ -4,6 +4,8 @@
 #include "distance.hpp"
 #include "grid.hpp"
 
+#include <cmath>
+#include <limits>
 #include <vector>
 
 namespace p2d {
@@ -15,7 +17,8 @@ namespace p2d {
 //         runs from r = w_max down to -d_max (the whole domain). For r >= 1 it coincides with `free`; below,
 //         obstacles are absorbed from their surface inwards, so free clusters merge and loops close across
 //         walls of thickness |r| (Robins et al., Water Resour. Res. 52, 315 (2016), signed distance transform).
-enum class Filtration { free, signed_distance };
+enum class Filtration { free, signed_distance, height, centres, height_exact };
+// `height` and `centres` are the continuum filtrations of continuum.hpp (input: .obs files).
 
 struct PersistenceOptions {
     DistanceOptions distance;
@@ -36,7 +39,9 @@ struct Bar {
     double death = 0.0;  // meaningless when essential
     bool essential = false;
     bool wraps = false;
-    double persistence() const { return birth - death; }
+    // Continuum filtrations only: position of the birth cell (x, y) and of the death cell (xs, ys; NaN if essential).
+    double x = std::numeric_limits<double>::quiet_NaN(), y = x, xs = x, ys = x;
+    double persistence() const { return std::abs(birth - death); }
 };
 
 struct PersistenceResult {

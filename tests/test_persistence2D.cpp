@@ -1,5 +1,6 @@
 // Unit tests for persistence2D. No framework: each check prints its result and the exit code counts failures
 // (run with ctest, or ./build/test_persistence2D).
+#include "continuum.hpp"
 #include "descriptors.hpp"
 #include "distance.hpp"
 #include "grid.hpp"
@@ -7,6 +8,7 @@
 #include "params.hpp"
 #include "persistence.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -336,6 +338,169 @@ void test_quantile_and_params() {
 
 }  // namespace
 
+
+// --- Continuum filtrations (.obs input) -------------------------------------------------------------------
+
+ObsFile make_obs(double Lx, double Ly, double R, std::vector<std::array<double, 2>> c, bool periodic = true) {
+    ObsFile o;
+    o.Lx = Lx;
+    o.Ly = Ly;
+    o.R = R;
+    o.periodic_x = periodic;
+    o.centres = std::move(c);
+    return o;
+}
+
+void test_continuum() {
+    std::cout << "continuum\n";
+    // Reader: header, count check, errors.
+    const auto dir = std::filesystem::temp_directory_path() / std::format("p2d_obs_{}", getpid());
+    std::filesystem::create_directories(dir);
+    auto write = [&](const std::string& name, const std::string& body) {
+        std::ofstream(dir / name) << body;
+        return (dir / name).string();
+    };
+    const std::string hdr = "# format: 1\n# Lx: 10\n# Ly: 6\n# R: 0.2\n# boundary: periodic_x\n";
+    const auto good = write("good.obs", hdr + "# n_obstacles: 2\n# columns: x y\n4.5 3\n5.5 3\n");
+    check(is_obs_file(good), "is_obs_file recognises '# format: 1'");
+    const ObsFile o = read_obs(good);
+    check(o.centres.size() == 2 && o.Lx == 10 && o.R == 0.2 && o.periodic_x, "read_obs: header and centres");
+    check(!is_obs_file(write("map.txt", "..#\n")), "is_obs_file rejects a text map");
+    auto throws = [&](const std::string& path) {
+        try { read_obs(path); } catch (const std::runtime_error&) { return true; }
+        return false;
+    };
+    check(throws(write("count.obs", hdr + "# n_obstacles: 3\n4.5 3\n")), "read_obs: wrong obstacle count");
+    check(throws(write("nohdr.obs", "# format: 1\n# Lx: 10\n1 1\n")), "read_obs: missing header keys");
+    check(throws(write("bnd.obs", "# format: 1\n# Lx: 10\n# Ly: 6\n# R: 0.2\n# boundary: periodic_xy\n1 1\n")),
+          "read_obs: unsupported boundary");
+    std::filesystem::remove_all(dir);
+
+    // Distance to the nearest centre against brute force, with minimum image in x.
+    std::mt19937 rng(7);
+    std::uniform_real_distribution<double> ux(0, 12), uy(0, 5);
+    std::vector<std::array<double, 2>> pts;
+    for (int i = 0; i < 40; ++i) pts.push_back({ux(rng), uy(rng)});
+    for (bool per : {true, false}) {
+        const ObsFile r = make_obs(12, 5, 0.2, pts, per);
+        const std::size_t nx = 60, ny = 25;
+        const auto d = centre_distance(r, nx, ny);
+        double worst = 0;
+        for (std::size_t j = 0; j < ny; ++j)
+            for (std::size_t i = 0; i < nx; ++i) {
+                const double x = (i + 0.5) * 12.0 / nx, y = (j + 0.5) * 5.0 / ny;
+                double best = 1e9;
+                for (const auto& p : pts) {
+                    double dx = std::abs(p[0] - x);
+                    if (per) dx = std::min(dx, 12 - dx);
+                    best = std::min(best, std::hypot(dx, p[1] - y));
+                }
+                worst = std::max(worst, std::abs(best - d[i + nx * j]));
+            }
+        check(worst < 1e-12, std::format("centre_distance matches brute force (periodic={})", per));
+    }
+
+    // One V trap with a known barrier: two obstacles 2*delta apart side by side at height y0. A grain (rho = R + 1/2)
+    // rests at the cusp, y0 + sqrt(rho^2 - delta^2), and escapes over the top of the discs, y0 + rho.
+    {
+        const double R = 0.2, rho = R + 0.5, delta = 0.5, y0 = 3.0;
+        const ObsFile v = make_obs(10, 6, R, {{5 - delta, y0}, {5 + delta, y0}});
+        ContinuumOptions co;
+        co.pixel = 0.02;
+        const auto res = compute_continuum(v, co);
+        const Bar* trap = nullptr;
+        int finite0 = 0, essential0 = 0;
+        for (const auto& b : res.bars) {
+            if (b.dim != 0) continue;
+            (b.essential ? essential0 : finite0)++;
+            if (!b.essential) trap = &b;
+        }
+        const double cusp = y0 + std::sqrt(rho * rho - delta * delta);
+        check(finite0 == 1 && essential0 == 1, "height: one V trap and the global minimum");
+        if (trap) {
+            check(std::abs(trap->birth - cusp) < 0.03 && std::abs(trap->x - 5.0) < 0.03,
+                  std::format("height: trap at the cusp ({:.3f}, {:.3f}) vs ({:.3f}, 5)", trap->y, trap->x, cusp));
+            check(std::abs(trap->death - (y0 + rho)) < 0.03 && std::abs(trap->persistence() - (rho - std::sqrt(rho * rho - delta * delta))) < 0.04,
+                  std::format("height: barrier {:.3f} vs {:.3f}", trap->persistence(), rho - std::sqrt(rho * rho - delta * delta)));
+            check(std::abs(trap->ys - (y0 + rho)) < 0.03, "height: the saddle is at the height of the obstacle tops");
+        }
+        // The pair far enough apart is no trap: only the global minimum remains.
+        const ObsFile w = make_obs(10, 6, R, {{5 - 0.8, y0}, {5 + 0.8, y0}});
+        int f = 0;
+        for (const auto& b : compute_continuum(w, co).bars)
+            if (b.dim == 0 && !b.essential) ++f;
+        check(f == 0, "height: obstacles farther apart than 2 rho make no trap");
+    }
+
+    // Distance filtration of a triangular lattice: every triangle is a chamber of the free space, born at the
+    // circumradius a/sqrt(3) and dying at the bottleneck a/2.
+    {
+        const double a = 4.0;
+        std::vector<std::array<double, 2>> c;
+        const int ncol = 6, nrow = 8;
+        for (int j = 0; j < nrow; ++j)
+            for (int i = 0; i < ncol; ++i) c.push_back({a * (i + 0.5 * (j % 2)), a * std::sqrt(3.0) / 2 * j});
+        const ObsFile lat = make_obs(ncol * a, nrow * a * std::sqrt(3.0) / 2, 0.2, c);
+        ContinuumOptions co;
+        co.mode = ContinuumMode::centres;
+        co.pixel = 0.02;
+        co.min_persistence = 0.04;   // two pixels: the distance field has discretisation noise
+        const auto res = compute_continuum(lat, co);
+        int inner = 0;
+        double worst = 0;
+        for (const auto& b : res.bars) {
+            if (b.dim != 0 || b.essential || b.y < a || b.y > lat.Ly - a) continue;
+            ++inner;
+            worst = std::max({worst, std::abs(b.birth - a / std::sqrt(3.0)), std::abs(b.death - a / 2)});
+        }
+        // The band between y = a and Ly - a holds 2 triangles per obstacle of the rows in it.
+        check(inner >= 2 * ncol * 2 && worst < 0.04, std::format("centres: {} chambers of the lattice, worst error {:.3f}", inner, worst));
+    }
+    // height_exact: the same pair is a trap with the barrier given by the formula, with no pixel error.
+    {
+        const double R = 0.2, rho = R + 0.5, delta = 0.5, y0 = 3.0;
+        const ObsFile v = make_obs(10, 6, R, {{5 - delta, y0}, {5 + delta, y0}});
+        const auto bars = height_exact(v, rho);
+        const double cusp = y0 + std::sqrt(rho * rho - delta * delta);
+        check(bars.size() == 1 && std::abs(bars[0].birth - cusp) < 1e-12 && std::abs(bars[0].death - (y0 + rho)) < 1e-12,
+              "height_exact: a pair is one trap, cusp and barrier exact");
+        const ObsFile w = make_obs(10, 6, R, {{5 - 0.8, y0}, {5 + 0.8, y0}});
+        check(height_exact(w, rho).empty(), "height_exact: obstacles farther apart than 2 rho make no trap");
+        // Three stacked pairs: the lower trap is covered by nothing, the upper pair sits above a disc top.
+        const ObsFile st = make_obs(10, 12, R, {{4.5, 3}, {5.5, 3}, {4.5, 7}, {5.5, 7}});
+        const auto b2 = height_exact(st, rho);
+        int fin = 0;
+        for (const auto& b : b2) fin += !b.essential;
+        check(b2.size() == 2 && fin == 2, "height_exact: two separate pairs, two traps that both drain");
+    }
+    // Random arrangement: exact barriers against the pixel grid (grid error is about one pixel).
+    {
+        std::mt19937 g(11);
+        std::uniform_real_distribution<double> ux(0, 8), uy(2.5, 6.5);
+        std::vector<std::array<double, 2>> c;
+        for (int i = 0; i < 28; ++i) c.push_back({ux(g), uy(g)});
+        const ObsFile r = make_obs(8, 9, 0.2, c);
+        const auto exact = height_exact(r, 0.7);
+        ContinuumOptions co;
+        co.pixel = 0.01;
+        const auto grid = compute_continuum(r, co).bars;
+        int checked = 0, bad = 0;
+        for (const auto& e : exact) {
+            if (e.essential || e.persistence() < 0.12) continue;
+            ++checked;
+            bool ok = false;
+            for (const auto& b : grid) {
+                if (b.dim != 0 || b.essential) continue;
+                double dx = std::abs(b.x - e.x);
+                dx = std::min(dx, 8 - dx);
+                if (std::hypot(dx, b.y - e.y) < 0.05 && std::abs(b.persistence() - e.persistence()) < 0.05) ok = true;
+            }
+            bad += !ok;
+        }
+        check(checked > 3 && bad == 0, std::format("height_exact agrees with the fine grid on {} traps ({} mismatches)", checked, bad));
+    }
+}
+
 int main() {
     try {
         test_empty_torus();
@@ -347,6 +512,7 @@ int main() {
         test_distances();
         test_readers();
         test_quantile_and_params();
+        test_continuum();
     } catch (const std::exception& e) {
         std::cout << "  FAIL exception: " << e.what() << '\n';
         ++failures;

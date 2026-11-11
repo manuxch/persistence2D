@@ -28,6 +28,12 @@ boundary_obstacle: false
 # 8: free sites are pixels and diagonal neighbours touch (top-cell construction)
 connectivity: 4
 
+# --- Continuum (.obs) input: filtration height | height_exact | centres (instead of free | signed) --------------------
+# pixel: 0.05              # pixel side, in the length unit of the file
+# grain: 1                 # grain diameter
+# clearance: 0.7           # default R + grain/2 (height) or 0 (centres)
+# min_persistence: 0       # drop bars shorter than this
+
 # --- Run --------------------------------------------------------------------------------------------
 # Maps processed in parallel: 0 = all CPUs available to the process
 num_threads: 0

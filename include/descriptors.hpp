@@ -42,6 +42,8 @@ struct Summary {
 // Linear-interpolation quantile (the default of numpy.quantile); q in [0, 1]. NaN for an empty sample.
 double quantile(std::vector<double> v, double q);
 
+DimSummary summarize_dim(const std::vector<Bar>& bars, int dim, std::size_t n_free);
+
 Summary summarize(const Grid& g, const PersistenceResult& res);
 
 // Distinct filtration levels (values of w on the sites of the filtration), decreasing.
