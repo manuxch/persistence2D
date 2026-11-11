@@ -212,6 +212,11 @@ std::vector<double> centre_distance(const ObsFile& obs, std::size_t nx, std::siz
 ContinuumResult compute_continuum(const ObsFile& obs, const ContinuumOptions& opt) {
     if (!(opt.pixel > 0) || !(opt.grain > 0)) throw std::invalid_argument("pixel and grain must be positive");
     ContinuumResult res;
+    if (opt.mode == ContinuumMode::height_exact) {
+        res.clearance = opt.clearance >= 0 ? opt.clearance : obs.R + 0.5 * opt.grain;
+        res.bars = height_exact(obs, res.clearance);
+        return res;
+    }
     res.nx = std::max<std::size_t>(2, static_cast<std::size_t>(std::llround(obs.Lx / opt.pixel)));
     res.ny = std::max<std::size_t>(2, static_cast<std::size_t>(std::llround(obs.Ly / opt.pixel)));
     const double hx = obs.Lx / static_cast<double>(res.nx), hy = obs.Ly / static_cast<double>(res.ny);

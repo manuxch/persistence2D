@@ -22,6 +22,7 @@ add_library(p2d_core STATIC
     src/distance.cpp
     src/persistence.cpp
     src/continuum.cpp
+    src/height_exact.cpp
     src/descriptors.cpp
     src/params.cpp
     src/output.cpp

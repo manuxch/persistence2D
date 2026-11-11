@@ -72,7 +72,8 @@ Params parse_params(const std::string& text, const std::string& origin) {
             else if (value == "signed") p.persistence.filtration = Filtration::signed_distance;
             else if (value == "height") p.persistence.filtration = Filtration::height;
             else if (value == "centres") p.persistence.filtration = Filtration::centres;
-            else throw std::runtime_error(std::format("{}: filtration must be free, signed, height or centres", where));
+            else if (value == "height_exact") p.persistence.filtration = Filtration::height_exact;
+            else throw std::runtime_error(std::format("{}: filtration must be free, signed, height, height_exact or centres", where));
         } else if (key == "pixel" || key == "grain" || key == "clearance" || key == "min_persistence") {
             double v;
             try {
@@ -122,9 +123,9 @@ Params read_params(const std::string& path) {
 std::string describe(const Params& p) {
     const auto& d = p.persistence.distance;
     const auto f = p.persistence.filtration;
-    if (f == Filtration::height || f == Filtration::centres)
+    if (f == Filtration::height || f == Filtration::centres || f == Filtration::height_exact)
         return std::format("filtration={} pixel={} grain={} clearance={} min_persistence={}",
-                           f == Filtration::height ? "height" : "centres", p.continuum.pixel, p.continuum.grain,
+                           f == Filtration::height ? "height" : f == Filtration::height_exact ? "height_exact" : "centres", p.continuum.pixel, p.continuum.grain,
                            p.continuum.clearance < 0 ? std::string("auto") : std::format("{}", p.continuum.clearance),
                            p.continuum.min_persistence);
     return std::format("filtration={} metric={} periodic={} boundary_obstacle={} connectivity={} obstacle={}",

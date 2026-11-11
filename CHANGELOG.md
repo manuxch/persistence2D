@@ -13,6 +13,9 @@ All notable changes to this project are documented here. The format follows
 - Filtration `height`: sublevel sets of y on the region a grain of diameter `grain` can reach (distance to every
   centre >= `clearance`, default R + grain/2). H0 births are the local minima of that region, the V traps
   (gravity toward -y); the persistence of each is the height the grain must climb to reach a lower basin.
+- Filtration `height_exact`: the same as `height` with no pixel grid (corners and disc tops, union-find in order of
+  height). One H0 bar per V trap, heights exact; it reproduces the V-trap count of hyperGalton2D `array_stats` in
+  all 482 arrangements of its T1 study and runs in about a millisecond per arrangement.
 - Filtration `centres`: superlevel sets of the distance to the nearest centre, dual to the alpha filtration of
   the centres (H0 here is H1 there).
 - `bars.csv` gains `x,y,xs,ys` (birth and death cell positions) when a continuum filtration is used.

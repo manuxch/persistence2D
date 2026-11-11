@@ -456,6 +456,49 @@ void test_continuum() {
         // The band between y = a and Ly - a holds 2 triangles per obstacle of the rows in it.
         check(inner >= 2 * ncol * 2 && worst < 0.04, std::format("centres: {} chambers of the lattice, worst error {:.3f}", inner, worst));
     }
+    // height_exact: the same pair is a trap with the barrier given by the formula, with no pixel error.
+    {
+        const double R = 0.2, rho = R + 0.5, delta = 0.5, y0 = 3.0;
+        const ObsFile v = make_obs(10, 6, R, {{5 - delta, y0}, {5 + delta, y0}});
+        const auto bars = height_exact(v, rho);
+        const double cusp = y0 + std::sqrt(rho * rho - delta * delta);
+        check(bars.size() == 1 && std::abs(bars[0].birth - cusp) < 1e-12 && std::abs(bars[0].death - (y0 + rho)) < 1e-12,
+              "height_exact: a pair is one trap, cusp and barrier exact");
+        const ObsFile w = make_obs(10, 6, R, {{5 - 0.8, y0}, {5 + 0.8, y0}});
+        check(height_exact(w, rho).empty(), "height_exact: obstacles farther apart than 2 rho make no trap");
+        // Three stacked pairs: the lower trap is covered by nothing, the upper pair sits above a disc top.
+        const ObsFile st = make_obs(10, 12, R, {{4.5, 3}, {5.5, 3}, {4.5, 7}, {5.5, 7}});
+        const auto b2 = height_exact(st, rho);
+        int fin = 0;
+        for (const auto& b : b2) fin += !b.essential;
+        check(b2.size() == 2 && fin == 2, "height_exact: two separate pairs, two traps that both drain");
+    }
+    // Random arrangement: exact barriers against the pixel grid (grid error is about one pixel).
+    {
+        std::mt19937 g(11);
+        std::uniform_real_distribution<double> ux(0, 8), uy(2.5, 6.5);
+        std::vector<std::array<double, 2>> c;
+        for (int i = 0; i < 28; ++i) c.push_back({ux(g), uy(g)});
+        const ObsFile r = make_obs(8, 9, 0.2, c);
+        const auto exact = height_exact(r, 0.7);
+        ContinuumOptions co;
+        co.pixel = 0.01;
+        const auto grid = compute_continuum(r, co).bars;
+        int checked = 0, bad = 0;
+        for (const auto& e : exact) {
+            if (e.essential || e.persistence() < 0.12) continue;
+            ++checked;
+            bool ok = false;
+            for (const auto& b : grid) {
+                if (b.dim != 0 || b.essential) continue;
+                double dx = std::abs(b.x - e.x);
+                dx = std::min(dx, 8 - dx);
+                if (std::hypot(dx, b.y - e.y) < 0.05 && std::abs(b.persistence() - e.persistence()) < 0.05) ok = true;
+            }
+            bad += !ok;
+        }
+        check(checked > 3 && bad == 0, std::format("height_exact agrees with the fine grid on {} traps ({} mismatches)", checked, bad));
+    }
 }
 
 int main() {

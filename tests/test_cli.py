@@ -114,6 +114,10 @@ with tempfile.TemporaryDirectory(prefix="p2d_cli_") as t:
     trap = [x for x in rows if x["dim"] == "0" and x["essential"] == "0"]
     check(len(trap) == 1 and abs(float(trap[0]["persistence"]) - 0.21) < 0.06 and "xs" in rows[0],
           "one V trap with barrier ~ 0.21 and positions in bars.csv")
+    r = run(tmp, "filtration: height_exact\nbars_file: e/bars.csv\nbetti_file:\nsummary_file:\n", obs)
+    rows = list(csv.DictReader(l for l in (tmp / "e/bars.csv").read_text().splitlines() if not l.startswith("#")))
+    check(r.returncode == 0 and len(rows) == 1 and abs(float(rows[0]["persistence"]) - (0.7 - 0.7 ** 2 * 0 - (0.49 - 0.25) ** 0.5)) < 1e-9,
+          "height_exact: one trap, exact barrier 0.7 - sqrt(0.49 - 0.25)")
     r = run(tmp, "filtration: height\n", examples / "blocks_q16.txt")
     check(r.returncode == 1 and "needs a .obs" in r.stderr, "height on a text map is an error")
     r = run(tmp, "filtration: free\n", obs)

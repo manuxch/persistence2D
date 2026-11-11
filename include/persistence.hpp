@@ -17,7 +17,7 @@ namespace p2d {
 //         runs from r = w_max down to -d_max (the whole domain). For r >= 1 it coincides with `free`; below,
 //         obstacles are absorbed from their surface inwards, so free clusters merge and loops close across
 //         walls of thickness |r| (Robins et al., Water Resour. Res. 52, 315 (2016), signed distance transform).
-enum class Filtration { free, signed_distance, height, centres };
+enum class Filtration { free, signed_distance, height, centres, height_exact };
 // `height` and `centres` are the continuum filtrations of continuum.hpp (input: .obs files).
 
 struct PersistenceOptions {

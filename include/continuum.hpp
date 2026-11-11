@@ -28,7 +28,7 @@ ObsFile read_obs(const std::string& path);      // throws std::runtime_error wit
 //          height the grain must climb to reach a lower basin. clearance defaults to R + grain/2.
 // centres: the superlevel filtration of the distance to the nearest centre, V_r = {x : dist >= r}; H0 and H1
 //          of V_r are dual to H1 and H0 of the alpha filtration of the centres (bars are in radius units).
-enum class ContinuumMode { height, centres };
+enum class ContinuumMode { height, centres, height_exact };
 
 struct ContinuumOptions {
     ContinuumMode mode = ContinuumMode::height;
@@ -47,6 +47,13 @@ struct ContinuumResult {
     double min_persistence = 0.0;   // the threshold used
     std::vector<Bar> bars;       // with positions (x, y) of the birth cell and (xs, ys) of the death cell
 };
+
+// Exact version of `height`, with no pixel grid: the V traps are the corners of the inflated discs and the
+// barriers are the tops of discs, combined by union-find in order of height (see src/height_exact.cpp). rho is the
+// clearance, R + grain/2. Needs a periodic_x arrangement. Returns the H0 bars (x, y: trap; xs, ys: top of the
+// disc where the basin joins a lower one); the unbounded component below every obstacle has no bar, and closed
+// voids give essential bars. H1 is not reported.
+std::vector<Bar> height_exact(const ObsFile& obs, double rho);
 
 ContinuumResult compute_continuum(const ObsFile& obs, const ContinuumOptions& opt);
 

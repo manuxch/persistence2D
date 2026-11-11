@@ -62,10 +62,12 @@ int main(int argc, char** argv) {
                 const std::string& file = p.inputs[i];
                 try {
                     const auto f = p.persistence.filtration;
-                    if (f == p2d::Filtration::height || f == p2d::Filtration::centres) {
+                    if (f == p2d::Filtration::height || f == p2d::Filtration::centres || f == p2d::Filtration::height_exact) {
                         if (!p2d::is_obs_file(file)) throw std::runtime_error(file + ": filtration height/centres needs a .obs file");
                         p2d::ContinuumOptions co = p.continuum;
-                        co.mode = f == p2d::Filtration::height ? p2d::ContinuumMode::height : p2d::ContinuumMode::centres;
+                        co.mode = f == p2d::Filtration::height ? p2d::ContinuumMode::height
+                                       : f == p2d::Filtration::height_exact ? p2d::ContinuumMode::height_exact
+                                                                            : p2d::ContinuumMode::centres;
                         results[i] = p2d::analyse_continuum(file, p2d::read_obs(file), co);
                         continue;
                     }

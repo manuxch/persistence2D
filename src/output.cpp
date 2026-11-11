@@ -53,7 +53,7 @@ MapResult analyse(const std::string& file, const Grid& g, const PersistenceOptio
 MapResult analyse_continuum(const std::string& file, const ObsFile& obs, const ContinuumOptions& opt) {
     MapResult m;
     m.file = file;
-    m.format = opt.mode == ContinuumMode::height ? "obs-height" : "obs-centres";
+    m.format = opt.mode == ContinuumMode::height ? "obs-height" : opt.mode == ContinuumMode::height_exact ? "obs-height-exact" : "obs-centres";
     ContinuumResult r = compute_continuum(obs, opt);
     m.nx = r.nx;
     m.ny = r.ny;
@@ -61,7 +61,7 @@ MapResult analyse_continuum(const std::string& file, const ObsFile& obs, const C
     constexpr double nan = std::numeric_limits<double>::quiet_NaN();
     Summary& s = m.summary;
     s.n_free = r.n_access;
-    s.phi = 1.0 - static_cast<double>(r.n_access) / static_cast<double>(r.nx * r.ny);
+    s.phi = r.nx ? 1.0 - static_cast<double>(r.n_access) / static_cast<double>(r.nx * r.ny) : std::numeric_limits<double>::quiet_NaN();
     s.w_max = s.w_mean = s.r_min = s.r_wrap1 = s.r_star = s.branching = nan;
     s.h0 = summarize_dim(r.bars, 0, r.n_access);
     s.h1 = summarize_dim(r.bars, 1, r.n_access);
