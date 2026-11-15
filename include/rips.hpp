@@ -33,8 +33,9 @@ PointCloud point_cloud(const Grid& g, bool periodic, bool obstacles);
 // longest edge of the triangle that fills it (x, y and xs, ys: centroids of the birth edge and of the killing
 // triangle, reduced into the box in the periodic directions). `essential` bars are still alive at max_radius: one
 // H0 per component of the graph, and H1 classes that the truncated complex has not filled (including the loops
-// that wind around a periodic direction). Needs 4 max_radius < L in every periodic direction, so that the minimum
-// image is unique.
+// that wind around a periodic direction). Needs 6 max_radius < L in every periodic direction: below that, edges of
+// length up to L / 3 let three of them go round the box and fill the loops that wind around it (4 max_radius < L,
+// which keeps the minimum image unique, is not enough).
 std::vector<Bar> rips_persistence(const PointCloud& pc, double max_radius);
 std::vector<Bar> rips_persistence(const ObsFile& obs, double max_radius);
 

@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-15
+
+### Fixed
+
+- `rips` in a periodic direction now requires 6 `max_radius` < L instead of 4 `max_radius` < L. With edges up to
+  2 `max_radius` >= L/3, three edges of the Rips complex can go round the box and fill the loops that wind around
+  it (a row of 16 obstacle sites around a 16-site torus lost its loop at radius 8/3 with `max_radius: 3`).
+  Parameters accepted by 0.4.0 between L/6 and L/4 are now rejected.
+
+### Changed
+
+- README: on lattice maps, 2 x 2 blocks of obstacles give H1 bars [1/2, sqrt(2)/2) with no free site inside; rings
+  around free regions die at r >= 1.
+- Tests: the loop around a periodic box stays essential up to L/6; the minimum-spanning-tree test uses
+  `max_radius: 1.9` (6 x 1.9 < 12).
+
 ## [0.4.0] - 2026-11-15
 
 ### Added
@@ -88,6 +104,7 @@ First version.
 - Tests: hand-computable topology, Euler characteristic at every level of random maps, distance
   transforms against brute force, readers, and an end-to-end test of the executable and scripts.
 
+[0.4.1]: https://github.com/manuxch/persistence2D/releases/tag/v0.4.1
 [0.4.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.4.0
 [0.3.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.3.0
 [0.2.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.2.0

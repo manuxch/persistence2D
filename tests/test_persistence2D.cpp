@@ -528,7 +528,7 @@ void test_rips_grid() {
             if (!(x == 5 && y == 5)) g.obstacle[g.index(x, y)] = 1;
     const PointCloud obs = point_cloud(g, true, true);
     check(obs.points.size() == 8 && obs.periodic_x && obs.periodic_y, "point_cloud: obstacle sites, periodic in x and y");
-    b = rips_persistence(obs, 2.0);
+    b = rips_persistence(obs, 1.5);   // 6 * 1.5 < 12; the ring is filled at 1
     int h1 = 0;
     bool ring = false;
     for (const auto& x : b)
@@ -632,7 +632,8 @@ void test_rips() {
             for (std::size_t i = 0; i < c.size(); ++i) if (!in[i]) key[i] = std::min(key[i], d(u, i));
         }
         std::sort(mst.begin(), mst.end());
-        b = rips_persistence(o, 2.9);   // 4 * 2.9 < 12, and above every MST edge / 2 for 120 points in 96 units of area
+        check(mst.back() / 2 < 1.9, "rips: max_radius 1.9 is above every MST edge / 2 of the 120 points");
+        b = rips_persistence(o, 1.9);   // 6 * 1.9 < 12
         std::vector<double> got;
         for (const auto& x : finite(b, 0)) got.push_back(2 * x.death);
         std::sort(got.begin(), got.end());
@@ -650,6 +651,14 @@ void test_rips() {
         return false;
     };
     check(throws(make(10, 6, true, {{1, 1}, {2, 2}}), 2.5), "rips: max_radius too large for the periodic box");
+    check(throws(make(12, 6, true, {{1, 1}, {2, 2}}), 2.5), "rips: 4 max_radius < L is not enough, 6 max_radius < L is required");
+    // A row of points around a periodic box of width 12: the loop around x stays essential just below L / 6.
+    {
+        std::vector<std::array<double, 2>> row;
+        for (int i = 0; i < 12; ++i) row.push_back({static_cast<double>(i), 3.0});
+        const auto br = rips_persistence(make(12, 6, true, row), 1.99);
+        check(n_ess(br, 1) == 1 && finite(br, 1).empty(), "rips: the loop around the periodic box is essential up to L / 6");
+    }
     check(throws(make(10, 6, true, {}), 1.0), "rips: empty arrangement");
     check(std::abs(rips_default_radius(make(10, 6, true, {{1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}, {6, 5}})) - 1.5 * std::sqrt(10.0)) < 1e-12,
           "rips: default radius = 1.5 x mean spacing");

@@ -1,6 +1,6 @@
 # persistence2D
 
-**Version 0.4.0** — see [CHANGELOG.md](CHANGELOG.md).
+**Version 0.4.1** — see [CHANGELOG.md](CHANGELOG.md).
 
 Persistent homology of the free space of two-dimensional binary maps, and of continuum obstacle arrangements
 
@@ -435,7 +435,7 @@ Validation of `height_exact` (tests and cross-checks, in the hyperGalton2D proje
 The `centres` filtration looks at the region a grain can reach. `rips` looks at the obstacles as a point pattern: the centres of a `.obs` file, or the sites of a lattice map (see [below](#rips-on-lattice-maps)), as in the topological analyses of point processes and of disordered and hyperuniform patterns. It is the Vietoris–Rips complex of the centres, filtered by radius *r*: a pair of centres joins at *r* = half their distance, and a triangle enters when its three edges are in. *r* is the radius of the discs of the union around the centres, the same scale as `centres` and as the alpha complex, so the diagrams are directly comparable; GUDHI itself filters by edge length (twice *r*).
 
 - **Metric.** Euclidean, with the minimum image in x if the file is `periodic_x` (a cylinder: y is open), plain Euclidean with `walls_x`.
-- **Truncation.** Only edges up to 2 `max_radius` are kept, so the complex stays sparse (default 1.5 × the mean spacing). H₀ and H₁ are exact up to that radius. For `periodic_x` the minimum image must be unique, which needs 4 `max_radius` < *L*<sub>*x*</sub>.
+- **Truncation.** Only edges up to 2 `max_radius` are kept, so the complex stays sparse (default 1.5 × the mean spacing). H₀ and H₁ are exact up to that radius. For `periodic_x`, `max_radius` must satisfy 6 `max_radius` < *L*<sub>*x*</sub>. With edges up to 2 `max_radius` ≥ *L*<sub>*x*</sub>/3, three edges can go round the cylinder and fill the loop around it; 4 `max_radius` < *L*<sub>*x*</sub>, which keeps the minimum image unique, is not enough.
 - **H₀** is born at 0 for every centre and dies when two components join, at half the edge that joins them (the edges of the minimum spanning tree, as in the alpha complex). `x, y` is the centre that is born and `xs, ys` the midpoint of the joining edge. There are *N* − 1 finite bars and one essential.
 - **H₁** is born at half the edge that closes a loop and dies at half the longest edge of the triangle that fills it. `x, y` and `xs, ys` are the centroids of that edge and triangle (reduced into [0, *L*<sub>*x*</sub>)). Pairs of equal length are not reported. Essential H₁ bars are classes still alive at `max_radius`: the loop around the cylinder (periodic) and holes larger than the truncation; `wraps` is not set for them.
 - **Rips versus alpha.** The Rips and Čech (alpha) complexes are interleaved, not equal: the Rips complex fills a hole when the edges are in, the alpha complex at the circumradius, up to a factor √3/2 for an equilateral triangle. H₀ coincides; H₁ does not, so Rips H₁ is not the radius of the largest empty disc. It is an independent check and the comparison with the literature that uses Rips.
@@ -449,10 +449,11 @@ On a stealthy arrangement of 5364 obstacles (358 × 75) it takes 0.3 s and gives
 
 ### Rips on lattice maps
 
-With a lattice map (PBM/PGM, chasers `.map`, text) and `filtration: rips`, the points are the obstacle sites at their integer coordinates (`rips_points: obstacles`, the default) or the free sites (`rips_points: free`). Distances are Euclidean, with the minimum image in **both** directions if `periodic: true` (4 `max_radius` must be smaller than both sides). This is the point-pattern view of the map. It does not need wide corridors, so it still resolves structure when the width filtration has only two or three levels:
+With a lattice map (PBM/PGM, chasers `.map`, text) and `filtration: rips`, the points are the obstacle sites at their integer coordinates (`rips_points: obstacles`, the default) or the free sites (`rips_points: free`). Distances are Euclidean, with the minimum image in **both** directions if `periodic: true` (6 `max_radius` must be smaller than both sides, as above). This is the point-pattern view of the map. It does not need wide corridors, so it still resolves structure when the width filtration has only two or three levels:
 
 - **H₀** of the obstacle sites: obstacles adjacent along an edge join at *r* = 1/2, diagonal neighbours at √2/2, and clusters separated by a free site at 1. The number of bars that die above 1/2 counts the 4-connected obstacle clusters minus one; above √2/2, the 8-connected ones.
 - **H₁** of the obstacle sites: rings of obstacles around free regions. A ring closes at half its longest gap and is filled at half the longest edge across it, so the death measures the size of the enclosed free region. Eight obstacles around one free site give the bar [1/2, 1).
+- **2 × 2 blocks of obstacles** also give H₁ bars, [1/2, √2/2): the four sides join at 1/2 and the diagonals fill the square at √2/2, with no free site inside. A ring around at least one free site dies at *r* ≥ 1, the smallest being four obstacles around one site, filled at 1. So the bars that die at √2/2 count 2 × 2 obstacle blocks, and those that die at 1 or later are the rings around free regions.
 - On a torus, the two essential H₁ classes that remain once `max_radius` is large enough are its generators. Further essential classes mean holes larger than the truncation: raise `max_radius`.
 - Radii are half the lattice distances √(*a*² + *b*²)/2, so bars share a few values. Use counts above thresholds rather than quantiles of the deaths.
 

@@ -64,8 +64,10 @@ std::vector<Bar> rips_persistence(const PointCloud& pc, double max_radius) {
     if (pc.points.empty()) throw std::invalid_argument("rips: no points");
     if (!(max_radius > 0)) throw std::invalid_argument("rips: max_radius must be positive");
     for (const auto& [periodic, L, name] : {std::tuple{pc.periodic_x, pc.Lx, "width"}, std::tuple{pc.periodic_y, pc.Ly, "height"}})
-        if (periodic && !(4.0 * max_radius < L))
-            throw std::invalid_argument(std::format("rips: max_radius {} too large for a periodic box of {} {} (need 4 max_radius < L)",
+        // 6 max_radius < L: with edges up to 2 max_radius >= L / 3, three edges can go round the periodic direction
+        // and fill its loops (and 4 max_radius < L keeps the minimum image unique).
+        if (periodic && !(6.0 * max_radius < L))
+            throw std::invalid_argument(std::format("rips: max_radius {} too large for a periodic box of {} {} (need 6 max_radius < L)",
                                                     max_radius, name, L));
     const auto& c = pc.points;
     const bool px = pc.periodic_x, py = pc.periodic_y;
