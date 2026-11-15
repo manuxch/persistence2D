@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-15
+
+### Added
+
+- `filtration: rips` on lattice maps (PBM/PGM, chasers `.map`, text): Vietoris–Rips persistence of the obstacle
+  sites (`rips_points: obstacles`, default) or of the free sites (`rips_points: free`), with the minimum image in
+  both directions when `periodic: true`. `format` is the map format followed by `-rips-obstacles` or `-rips-free`.
+- `PointCloud` and `point_cloud()`: the Rips code now takes a point pattern periodic in x and/or y; `.obs` files
+  are the case periodic in x only.
+- Tests: minimum image in y, a ring of 8 obstacles (H1 bar [1/2, 1)), free sites as the complement, periodic and
+  open clouds of the same map.
+
+### Changed
+
+- `describe()` for `rips` also reports `rips_points`, `periodic` and `obstacle`.
+
 ## [0.3.0] - 2026-11-11
 
 ### Added
@@ -72,6 +88,7 @@ First version.
 - Tests: hand-computable topology, Euler characteristic at every level of random maps, distance
   transforms against brute force, readers, and an end-to-end test of the executable and scripts.
 
+[0.4.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.4.0
 [0.3.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.3.0
 [0.2.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.2.0
 [0.1.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.1.0

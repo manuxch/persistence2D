@@ -1,6 +1,6 @@
 # persistence2D
 
-**Version 0.3.0** — see [CHANGELOG.md](CHANGELOG.md).
+**Version 0.4.0** — see [CHANGELOG.md](CHANGELOG.md).
 
 Persistent homology of the free space of two-dimensional binary maps, and of continuum obstacle arrangements
 
@@ -10,7 +10,7 @@ Persistent homology of the free space of two-dimensional binary maps, and of con
 - **H₁** gives the loops around obstacle clusters.
 - **Wrapping classes** on the torus tell how wide a corridor has to be for the free space to span the system in one or both directions.
 
-It reads PBM/PGM images, the `.map` files of the chasers simulations and plain text maps. It also works directly on **continuum obstacle arrangements** (hyperGalton2D `.obs` files: discs at real positions, no lattice), where it computes the persistent homology of the region a grain of a given size can reach, filtered by distance to the obstacles (`centres`) or by height under gravity (`height`, `height_exact`). The height filtration gives the depth of every V trap, the pocket between two obstacles where a grain comes to rest; see [Continuum arrangements](#continuum-arrangements-centres-height-and-height_exact). The same files also give the Vietoris–Rips persistence of the centres as a point pattern (`rips`). It processes many maps in parallel and writes three CSV files: the persistence intervals, the Betti curves, and one row of descriptors per map. Python helpers read the outputs, vectorize the diagrams and draw summary figures.
+It reads PBM/PGM images, the `.map` files of the chasers simulations and plain text maps. It also works directly on **continuum obstacle arrangements** (hyperGalton2D `.obs` files: discs at real positions, no lattice), where it computes the persistent homology of the region a grain of a given size can reach, filtered by distance to the obstacles (`centres`) or by height under gravity (`height`, `height_exact`). The height filtration gives the depth of every V trap, the pocket between two obstacles where a grain comes to rest; see [Continuum arrangements](#continuum-arrangements-centres-height-and-height_exact). The same files, and the lattice maps, also give the Vietoris–Rips persistence of the obstacles as a point pattern (`rips`). It processes many maps in parallel and writes three CSV files: the persistence intervals, the Betti curves, and one row of descriptors per map. Python helpers read the outputs, vectorize the diagrams and draw summary figures.
 
 <p align="center">
   <img src="docs/figures/blocks.png" width="640" alt="Four-panel summary of the blocks example: the map, its persistence diagram, Betti curves and wrap dimension">
@@ -183,7 +183,7 @@ The parameter file has one `key: value` per line, and `#` starts a comment. Unkn
 |---|---|---|---|
 | `input` | file names, space-separated | — | Maps to analyse. The command line overrides it. |
 | `obstacle` | `dark`, `light` | `dark` | Which pixels of PBM/PGM images are obstacles. |
-| `filtration` | `free`, `signed`, `centres`, `height`, `height_exact`, `rips` | `free` | Free space only, or continued into the obstacles (maps); distance to the centres, or height of the accessible region (`.obs` files, see [below](#continuum-arrangements-centres-height-and-height_exact)); Vietoris–Rips complex of the centres ([`rips`](#point-pattern-persistence-rips)). |
+| `filtration` | `free`, `signed`, `centres`, `height`, `height_exact`, `rips` | `free` | Free space only, or continued into the obstacles (maps); distance to the centres, or height of the accessible region (`.obs` files, see [below](#continuum-arrangements-centres-height-and-height_exact)); Vietoris–Rips complex of the obstacle centres or sites ([`rips`](#point-pattern-persistence-rips)). |
 | `metric` | `l1`, `l2` | `l1` | Distance for *w* (and for the wall thickness). Maps only. |
 | `periodic` | `true`, `false` | `true` | Torus, or open box. Maps only: an `.obs` file declares its own boundary. |
 | `boundary_obstacle` | `true`, `false` | `false` | Open box only: the sites just outside the lattice count as obstacles. |
@@ -193,6 +193,7 @@ The parameter file has one `key: value` per line, and `#` starts a comment. Unkn
 | `clearance` | length ≥ 0 | *R* + *d*/2 (`height`, `height_exact`), 0 (`centres`) | `.obs` files: smallest distance from a grain centre to an obstacle centre. |
 | `min_persistence` | length ≥ 0 | `0` | `.obs` files: drop bars shorter than this (essential bars are kept). `height_exact` and `rips` ignore it. |
 | `max_radius` | length ≥ 0 | `0` (1.5 × the mean spacing √(*L*<sub>*x*</sub>*L*<sub>*y*</sub>/*N*)) | `rips` only: largest radius of the complex (edges up to twice that). |
+| `rips_points` | `obstacles`, `free` | `obstacles` | `rips` on a lattice map: the points are the obstacle sites or the free sites. |
 | `num_threads` | integer ≥ 0 | `0` | Maps processed in parallel; `0` = all CPUs available to the process, which respects the affinity set by Slurm. |
 | `bars_file`, `betti_file`, `summary_file` | path, or empty | `bars.csv`, `betti.csv`, `summary.csv` | Outputs. An empty value skips the file, and directories are created. |
 
@@ -208,7 +209,7 @@ The format is detected from the content of the file, not from its extension.
 | PGM, plain (`P2`) or raw (`P5`), 8 or 16 bit | magic number | value *v* with 2*v* ≤ maxval (dark) if `obstacle: dark`, otherwise the light ones |
 | chasers map | first line `# chasers-map` | `#` (free `.`); `key: value` header up to `---`, checked against the `L` and `n_obs` keys |
 | text | anything else | `#` or `1` (free `.` or `0`); whitespace ignored, lines starting with `%` are comments |
-| hyperGalton2D `.obs` | first line `# format: 1` | discs of radius `R` at the listed centres; needs `filtration: centres`, `height`, `height_exact` or `rips` (and those need an `.obs` file) |
+| hyperGalton2D `.obs` | first line `# format: 1` | discs of radius `R` at the listed centres; needs `filtration: centres`, `height`, `height_exact` or `rips` (the first three need an `.obs` file; `rips` also takes lattice maps) |
 
 The `.obs` format is that of hyperGalton2D (`docs/formats/obstacles-format.pdf` there): a header of `# key: value` lines, then one `x y` centre per line. `persistence2D` reads `Lx`, `Ly`, `R`, `boundary` (`periodic_x` or `walls_x`) and, if present, checks `n_obstacles` against the number of rows; it does not verify the digest. [`examples/pair.obs`](examples/pair.obs) is a minimal file.
 
@@ -431,7 +432,7 @@ Validation of `height_exact` (tests and cross-checks, in the hyperGalton2D proje
 
 ## Point-pattern persistence: `rips`
 
-The `centres` filtration looks at the region a grain can reach. `rips` looks at the obstacle centres as a point pattern, as in the topological analyses of point processes and of disordered and hyperuniform patterns. It is the Vietoris–Rips complex of the centres, filtered by radius *r*: a pair of centres joins at *r* = half their distance, and a triangle enters when its three edges are in. *r* is the radius of the discs of the union around the centres, the same scale as `centres` and as the alpha complex, so the diagrams are directly comparable; GUDHI itself filters by edge length (twice *r*).
+The `centres` filtration looks at the region a grain can reach. `rips` looks at the obstacles as a point pattern: the centres of a `.obs` file, or the sites of a lattice map (see [below](#rips-on-lattice-maps)), as in the topological analyses of point processes and of disordered and hyperuniform patterns. It is the Vietoris–Rips complex of the centres, filtered by radius *r*: a pair of centres joins at *r* = half their distance, and a triangle enters when its three edges are in. *r* is the radius of the discs of the union around the centres, the same scale as `centres` and as the alpha complex, so the diagrams are directly comparable; GUDHI itself filters by edge length (twice *r*).
 
 - **Metric.** Euclidean, with the minimum image in x if the file is `periodic_x` (a cylinder: y is open), plain Euclidean with `walls_x`.
 - **Truncation.** Only edges up to 2 `max_radius` are kept, so the complex stays sparse (default 1.5 × the mean spacing). H₀ and H₁ are exact up to that radius. For `periodic_x` the minimum image must be unique, which needs 4 `max_radius` < *L*<sub>*x*</sub>.
@@ -445,6 +446,26 @@ max_radius: 2.0
 ```
 
 On a stealthy arrangement of 5364 obstacles (358 × 75) it takes 0.3 s and gives 5363 finite H₀ bars and 2843 finite H₁ bars with the default radius. The cost grows with the number of triangles, so a large `max_radius` is the limit, not *N*.
+
+### Rips on lattice maps
+
+With a lattice map (PBM/PGM, chasers `.map`, text) and `filtration: rips`, the points are the obstacle sites at their integer coordinates (`rips_points: obstacles`, the default) or the free sites (`rips_points: free`). Distances are Euclidean, with the minimum image in **both** directions if `periodic: true` (4 `max_radius` must be smaller than both sides). This is the point-pattern view of the map. It does not need wide corridors, so it still resolves structure when the width filtration has only two or three levels:
+
+- **H₀** of the obstacle sites: obstacles adjacent along an edge join at *r* = 1/2, diagonal neighbours at √2/2, and clusters separated by a free site at 1. The number of bars that die above 1/2 counts the 4-connected obstacle clusters minus one; above √2/2, the 8-connected ones.
+- **H₁** of the obstacle sites: rings of obstacles around free regions. A ring closes at half its longest gap and is filled at half the longest edge across it, so the death measures the size of the enclosed free region. Eight obstacles around one free site give the bar [1/2, 1).
+- On a torus, the two essential H₁ classes that remain once `max_radius` is large enough are its generators. Further essential classes mean holes larger than the truncation: raise `max_radius`.
+- Radii are half the lattice distances √(*a*² + *b*²)/2, so bars share a few values. Use counts above thresholds rather than quantiles of the deaths.
+
+`format` in `summary.csv` is the map format followed by `-rips-obstacles` or `-rips-free`. `n_free` and `phi` refer to the map, and the `_per_free` columns are per point of the pattern. As for the continuum filtrations, `betti.csv` has only its header and the width and torus columns are `nan`.
+
+```
+filtration: rips
+rips_points: obstacles
+periodic: true
+max_radius: 3
+```
+
+On a 120 × 120 chasers map with obstacle fraction 0.4 (5760 obstacles), `max_radius: 3` takes 1.0 s and 320 MB on one thread. All H₁ classes are filled, the two torus generators aside, and the default radius (2.37) leaves one unfilled. Radii 4 and 5 give the same bars and cost 2.7 s / 1 GB and 7.3 s / 3.3 GB.
 
 ## Performance
 
@@ -479,6 +500,7 @@ The continuum filtrations are in [their own section](#resolution-cost-and-valida
 - **Distances:** both transforms against brute force, periodic, open and with a boundary obstacle.
 - **Readers:** every input format reads the same map, a `.map` and its PGM give identical diagrams, and malformed headers and parameter files are rejected.
 - **Continuum:** the `.obs` reader and its errors; the distance to the centres against brute force (periodic and open); a pair of obstacles with an analytic cusp and barrier, on the grid (within a pixel) and exact (to 10⁻¹²); two stacked pairs; a triangular lattice whose chambers are born at *a*/√3 and die at *a*/2; and `height_exact` against a fine grid on a random arrangement.
+- **Rips on lattice maps:** the minimum image in y, a ring of 8 obstacles around a free site (one H₁ bar [1/2, 1)), `rips_points: free` as the complement, periodic and open clouds of the same map.
 - **Rips:** a pair (bar `[0, 1/2)`, death at the midpoint); the minimum image across *x* = 0 and its absence with `walls_x`; a unit square (H₁ `[1/2, √2/2)`, and essential if truncated below); a triangular lattice (all H₀ bars die at *a*/2, no finite H₁, one loop around the cylinder); H₀ against Prim's minimum spanning tree on 120 random points; the errors.
 
 `tests/test_cli.py` is the end-to-end test of the executable and the Python scripts:

@@ -26,6 +26,10 @@ struct MapResult {
 
 MapResult analyse(const std::string& file, const Grid& g, const PersistenceOptions& opt, const std::string& format);
 
+// Vietoris-Rips persistence of the obstacle (or free) sites of a lattice map; max_radius <= 0 = default.
+MapResult analyse_rips_grid(const std::string& file, const Grid& g, bool periodic, bool obstacles, double max_radius,
+                            const std::string& format);
+
 // Continuum filtrations (height, centres) of a .obs arrangement.
 MapResult analyse_continuum(const std::string& file, const ObsFile& obs, const ContinuumOptions& opt);
 

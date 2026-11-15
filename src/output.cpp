@@ -1,4 +1,5 @@
 #include "output.hpp"
+#include "rips.hpp"
 
 #include <cmath>
 #include <filesystem>
@@ -47,6 +48,27 @@ MapResult analyse(const std::string& file, const Grid& g, const PersistenceOptio
     m.levels = levels(g, res);
     m.summary = summarize(g, res);
     m.bars = std::move(res.bars);
+    return m;
+}
+
+MapResult analyse_rips_grid(const std::string& file, const Grid& g, bool periodic, bool obstacles, double max_radius,
+                            const std::string& format) {
+    MapResult m;
+    m.file = file;
+    m.format = format + (obstacles ? "-rips-obstacles" : "-rips-free");
+    m.nx = g.nx;
+    m.ny = g.ny;
+    m.has_positions = true;
+    const PointCloud pc = point_cloud(g, periodic, obstacles);
+    m.bars = rips_persistence(pc, max_radius > 0 ? max_radius : rips_default_radius(pc));
+    constexpr double nan = std::numeric_limits<double>::quiet_NaN();
+    Summary& s = m.summary;
+    s.n_free = g.n_free();
+    s.phi = static_cast<double>(g.n_obstacles()) / static_cast<double>(g.size());
+    s.w_max = s.w_mean = s.r_min = s.r_wrap1 = s.r_star = s.branching = nan;
+    // Bar counts per point of the pattern (the `_per_free` columns).
+    s.h0 = summarize_dim(m.bars, 0, pc.points.size());
+    s.h1 = summarize_dim(m.bars, 1, pc.points.size());
     return m;
 }
 

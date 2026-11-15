@@ -89,6 +89,10 @@ Params parse_params(const std::string& text, const std::string& origin) {
                 throw std::runtime_error(std::format("{}: {} must be {}", where, key, nonneg ? "non-negative" : "positive"));
             (key == "pixel" ? p.continuum.pixel : key == "grain" ? p.continuum.grain : key == "clearance" ? p.continuum.clearance
              : key == "max_radius" ? p.continuum.max_radius : p.continuum.min_persistence) = v;
+        } else if (key == "rips_points") {
+            if (value == "obstacles") p.rips_obstacles = true;
+            else if (value == "free") p.rips_obstacles = false;
+            else throw std::runtime_error(std::format("{}: rips_points must be obstacles or free", where));
         } else if (key == "periodic") {
             p.persistence.distance.periodic = to_bool(value, where);
         } else if (key == "boundary_obstacle") {
@@ -127,8 +131,10 @@ std::string describe(const Params& p) {
     const auto& d = p.persistence.distance;
     const auto f = p.persistence.filtration;
     if (f == Filtration::rips)
-        return std::format("filtration=rips max_radius={}",
-                           p.continuum.max_radius > 0 ? std::format("{}", p.continuum.max_radius) : std::string("auto"));
+        return std::format("filtration=rips max_radius={} rips_points={} periodic={} obstacle={}",
+                           p.continuum.max_radius > 0 ? std::format("{}", p.continuum.max_radius) : std::string("auto"),
+                           p.rips_obstacles ? "obstacles" : "free", d.periodic,
+                           p.obstacle_color == ObstacleColor::dark ? "dark" : "light");
     if (f == Filtration::height || f == Filtration::centres || f == Filtration::height_exact)
         return std::format("filtration={} pixel={} grain={} clearance={} min_persistence={}",
                            f == Filtration::height ? "height" : f == Filtration::height_exact ? "height_exact" : "centres", p.continuum.pixel, p.continuum.grain,

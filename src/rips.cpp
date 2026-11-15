@@ -9,6 +9,7 @@
 #include <limits>
 #include <numeric>
 #include <stdexcept>
+#include <tuple>
 
 namespace p2d {
 
@@ -22,28 +23,66 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 }  // namespace
 
+PointCloud point_cloud(const ObsFile& obs) {
+    PointCloud pc;
+    pc.Lx = obs.Lx;
+    pc.Ly = obs.Ly;
+    pc.periodic_x = obs.periodic_x;
+    pc.periodic_y = false;
+    pc.points = obs.centres;
+    return pc;
+}
+
+PointCloud point_cloud(const Grid& g, bool periodic, bool obstacles) {
+    PointCloud pc;
+    pc.Lx = static_cast<double>(g.nx);
+    pc.Ly = static_cast<double>(g.ny);
+    pc.periodic_x = pc.periodic_y = periodic;
+    for (std::size_t y = 0; y < g.ny; ++y)
+        for (std::size_t x = 0; x < g.nx; ++x)
+            if ((g.obstacle[g.index(x, y)] != 0) == obstacles)
+                pc.points.push_back({static_cast<double>(x), static_cast<double>(y)});
+    return pc;
+}
+
+double rips_default_radius(const PointCloud& pc) {
+    if (pc.points.empty()) throw std::invalid_argument("rips: no points");
+    return 1.5 * std::sqrt(pc.Lx * pc.Ly / static_cast<double>(pc.points.size()));
+}
+
 double rips_default_radius(const ObsFile& obs) {
     if (obs.centres.empty()) throw std::invalid_argument("rips: no obstacles");
-    return 1.5 * std::sqrt(obs.Lx * obs.Ly / static_cast<double>(obs.centres.size()));
+    return rips_default_radius(point_cloud(obs));
 }
 
 std::vector<Bar> rips_persistence(const ObsFile& obs, double max_radius) {
     if (obs.centres.empty()) throw std::invalid_argument("rips: no obstacles");
-    if (!(max_radius > 0)) throw std::invalid_argument("rips: max_radius must be positive");
-    if (obs.periodic_x && !(4.0 * max_radius < obs.Lx))
-        throw std::invalid_argument(std::format("rips: max_radius {} too large for a periodic box of width {} (need 4 max_radius < Lx)",
-                                                max_radius, obs.Lx));
-    const auto& c = obs.centres;
-    const bool px = obs.periodic_x;
-    const double Lx = obs.Lx;
+    return rips_persistence(point_cloud(obs), max_radius);
+}
 
-    // dx reduced to the minimum image, so that |dx| <= Lx / 2.
+std::vector<Bar> rips_persistence(const PointCloud& pc, double max_radius) {
+    if (pc.points.empty()) throw std::invalid_argument("rips: no points");
+    if (!(max_radius > 0)) throw std::invalid_argument("rips: max_radius must be positive");
+    for (const auto& [periodic, L, name] : {std::tuple{pc.periodic_x, pc.Lx, "width"}, std::tuple{pc.periodic_y, pc.Ly, "height"}})
+        if (periodic && !(4.0 * max_radius < L))
+            throw std::invalid_argument(std::format("rips: max_radius {} too large for a periodic box of {} {} (need 4 max_radius < L)",
+                                                    max_radius, name, L));
+    const auto& c = pc.points;
+    const bool px = pc.periodic_x, py = pc.periodic_y;
+    const double Lx = pc.Lx, Ly = pc.Ly;
+
+    // Coordinate differences reduced to the minimum image, so that |d| <= L / 2 in the periodic directions.
     auto dx_of = [&](std::size_t i, std::size_t j) {
         double dx = c[j][0] - c[i][0];
         if (px) dx -= Lx * std::round(dx / Lx);
         return dx;
     };
-    auto dist = [&](std::size_t i, std::size_t j) { return std::hypot(dx_of(i, j), c[j][1] - c[i][1]); };
+    auto dy_of = [&](std::size_t i, std::size_t j) {
+        double dy = c[j][1] - c[i][1];
+        if (py) dy -= Ly * std::round(dy / Ly);
+        return dy;
+    };
+    auto dist = [&](std::size_t i, std::size_t j) { return std::hypot(dx_of(i, j), dy_of(i, j)); };
 
     std::vector<std::size_t> ids(c.size());
     std::iota(ids.begin(), ids.end(), std::size_t{0});
@@ -55,7 +94,7 @@ std::vector<Bar> rips_persistence(const ObsFile& obs, double max_radius) {
     pcoh.init_coefficients(2);
     pcoh.compute_persistent_cohomology(0.0);
 
-    // Centroid of a simplex, unwrapped around its first vertex and reduced into [0, Lx) if periodic.
+    // Centroid of a simplex, unwrapped around its first vertex and reduced into the box in the periodic directions.
     auto centroid = [&](Complex::Simplex_handle sh) {
         std::size_t first = 0, n = 0;
         double sx = 0.0, sy = 0.0;
@@ -63,12 +102,14 @@ std::vector<Bar> rips_persistence(const ObsFile& obs, double max_radius) {
             const auto i = static_cast<std::size_t>(v);
             if (n == 0) first = i;
             sx += dx_of(first, i);
-            sy += c[i][1];
+            sy += dy_of(first, i);
             ++n;
         }
         double x = c[first][0] + sx / static_cast<double>(n);
+        double y = c[first][1] + sy / static_cast<double>(n);
         if (px) x -= Lx * std::floor(x / Lx);
-        return std::array<double, 2>{x, sy / static_cast<double>(n)};
+        if (py) y -= Ly * std::floor(y / Ly);
+        return std::array<double, 2>{x, y};
     };
 
     std::vector<Bar> bars;
