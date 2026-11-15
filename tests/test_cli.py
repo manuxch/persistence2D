@@ -39,6 +39,9 @@ with tempfile.TemporaryDirectory(prefix="p2d_cli_") as t:
     check(r.returncode == 2 and "usage" in r.stderr, "no arguments: usage and exit code 2")
     r = run(tmp, "colour: dark\n", examples / "blocks_q16.txt")
     check(r.returncode == 2 and "unknown key" in r.stderr, "unknown key: exit code 2")
+    if Path("/dev/full").exists():                      # Linux: every write fails with ENOSPC
+        r = run(tmp, "bars_file: /dev/full\n", examples / "blocks_q16.txt")
+        check(r.returncode == 2 and "write failed" in r.stderr, "full disk: exit code 2, not a cut file")
 
     print("free filtration on the example maps")
     maps = [examples / "blocks_q16.txt", examples / "channels.map", examples / "random_phi0.40.pgm"]

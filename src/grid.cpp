@@ -218,6 +218,8 @@ void write_pgm(const std::string& path, const Grid& g, ObstacleColor obstacle_co
     for (std::size_t y = 0; y < g.ny; ++y)
         for (std::size_t x = 0; x < g.nx; ++x)
             out << (g.obstacle[g.index(x, y)] ? obstacle_value : 1 - obstacle_value) << (x + 1 < g.nx ? ' ' : '\n');
+    out.close();
+    if (out.fail()) throw std::runtime_error(std::format("{}: write failed (disk full?)", path));
 }
 
 void write_text(const std::string& path, const Grid& g) {
@@ -227,6 +229,8 @@ void write_text(const std::string& path, const Grid& g) {
         for (std::size_t x = 0; x < g.nx; ++x) out << (g.obstacle[g.index(x, y)] ? '#' : '.');
         out << '\n';
     }
+    out.close();
+    if (out.fail()) throw std::runtime_error(std::format("{}: write failed (disk full?)", path));
 }
 
 }  // namespace p2d
