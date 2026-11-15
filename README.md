@@ -1,6 +1,6 @@
 # persistence2D
 
-**Version 0.4.1** — see [CHANGELOG.md](CHANGELOG.md).
+**Version 0.4.2** — see [CHANGELOG.md](CHANGELOG.md).
 
 Persistent homology of the free space of two-dimensional binary maps, and of continuum obstacle arrangements
 
@@ -194,7 +194,7 @@ The parameter file has one `key: value` per line, and `#` starts a comment. Unkn
 | `min_persistence` | length ≥ 0 | `0` | `.obs` files: drop bars shorter than this (essential bars are kept). `height_exact` and `rips` ignore it. |
 | `max_radius` | length ≥ 0 | `0` (1.5 × the mean spacing √(*L*<sub>*x*</sub>*L*<sub>*y*</sub>/*N*)) | `rips` only: largest radius of the complex (edges up to twice that). |
 | `rips_points` | `obstacles`, `free` | `obstacles` | `rips` on a lattice map: the points are the obstacle sites or the free sites. |
-| `num_threads` | integer ≥ 0 | `0` | Maps processed in parallel; `0` = all CPUs available to the process, which respects the affinity set by Slurm. |
+| `num_threads` | integer ≥ 0 | `0` | Maps processed in parallel; `0` = all CPUs available to the process, which respects the affinity set by Slurm. The results of all maps are kept in memory and written at the end, so split very large batches (the Rips bars of a 240 × 240 map take about 5 MB). |
 | `bars_file`, `betti_file`, `summary_file` | path, or empty | `bars.csv`, `betti.csv`, `summary.csv` | Outputs. An empty value skips the file, and directories are created. |
 
 The program prints one line per run. A map that cannot be read or analysed does not stop the others: its row in `summary.csv` carries the error message, and the exit code is 1. A bad parameter file gives exit code 2.

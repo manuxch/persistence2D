@@ -36,6 +36,12 @@ std::ofstream open_csv(const std::string& path, const std::string& options, cons
     return out;
 }
 
+// Flushes and closes a CSV file; a failed write (full disk, full /tmp tmpfs, quota) is an error, not a cut file.
+void close_csv(std::ofstream& out, const std::string& path) {
+    out.close();
+    if (out.fail()) throw std::runtime_error(std::format("{}: write failed (disk full?)", path));
+}
+
 }  // namespace
 
 MapResult analyse(const std::string& file, const Grid& g, const PersistenceOptions& opt, const std::string& format) {
@@ -112,6 +118,7 @@ void write_bars(const std::string& path, const std::vector<MapResult>& results, 
             out << '\n';
         }
     }
+    close_csv(out, path);
 }
 
 void write_betti(const std::string& path, const std::vector<MapResult>& results, const std::string& options) {
@@ -127,6 +134,7 @@ void write_betti(const std::string& path, const std::vector<MapResult>& results,
             out << f << ',' << num(r) << ',' << betti_at(m.bars, 0, r) << ',' << betti_at(m.bars, 1, r) << ','
                 << wraps_at(m.bars, r) << '\n';
     }
+    close_csv(out, path);
 }
 
 void write_summary(const std::string& path, const std::vector<MapResult>& results, const std::string& options) {
@@ -151,6 +159,7 @@ void write_summary(const std::string& path, const std::vector<MapResult>& result
                 << num(d->total) << ',' << num(d->entropy);
         out << ",\n";
     }
+    close_csv(out, path);
 }
 
 }  // namespace p2d

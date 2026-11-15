@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-15
+
+### Fixed
+
+- A failed write of an output file (full disk, a full `/tmp` tmpfs, a quota) is now an error, exit code 2, with
+  the message `<file>: write failed (disk full?)`. Before, the file was left cut in the middle of a row and the exit
+  code was 0. Found with the Rips bars of 4200 maps of 240 x 240 (about 20 GB) written to a 16 GB `/tmp`.
+
 ## [0.4.1] - 2026-11-15
 
 ### Fixed
@@ -104,6 +112,7 @@ First version.
 - Tests: hand-computable topology, Euler characteristic at every level of random maps, distance
   transforms against brute force, readers, and an end-to-end test of the executable and scripts.
 
+[0.4.2]: https://github.com/manuxch/persistence2D/releases/tag/v0.4.2
 [0.4.1]: https://github.com/manuxch/persistence2D/releases/tag/v0.4.1
 [0.4.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.4.0
 [0.3.0]: https://github.com/manuxch/persistence2D/releases/tag/v0.3.0
