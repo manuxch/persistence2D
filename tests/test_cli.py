@@ -131,8 +131,17 @@ with tempfile.TemporaryDirectory(prefix="p2d_cli_") as t:
     check(summ[0]["format"] == "obs-rips" and summ[0]["h0_n"] == "1" and summ[0]["h0_essential"] == "1", "rips: summary row (format obs-rips, 1 finite + 1 essential H0)")
     r = run(tmp, "filtration: rips\nmax_radius: 3\n", obs)
     check(r.returncode == 1 and "too large" in r.stderr, "rips: max_radius too large for the box is an error")
-    r = run(tmp, "filtration: rips\n", examples / "blocks_q16.txt")
-    check(r.returncode == 1 and "needs a .obs" in r.stderr, "rips on a text map is an error")
+    # rips on a lattice map: 16 blocks of 4 x 4 obstacle sites, 13 sites apart; with the default radius
+    # (1.5 x sqrt(64^2 / 256) = 6 < 13/2) the blocks never join: 16 essential H0, 240 finite (inside the blocks).
+    r = run(tmp, "filtration: rips\nbars_file:\nbetti_file:\nsummary_file: rg.csv\n", examples / "blocks_q16.txt")
+    rg = p2d.read_summary(tmp / "rg.csv")[0] if r.returncode == 0 else {}
+    check(r.returncode == 0 and rg.get("format") == "text-rips-obstacles" and rg["h0_essential"] == 16 and rg["h0_n"] == 240,
+          f"rips on a text map: 16 blocks stay apart, 240 finite H0 bars ({r.stderr.strip()})")
+    r = run(tmp, "filtration: rips\nrips_points: free\nmax_radius: 2\nbars_file:\nbetti_file:\nsummary_file: rf.csv\n",
+            examples / "blocks_q16.txt")
+    rf = p2d.read_summary(tmp / "rf.csv")[0] if r.returncode == 0 else {}
+    check(r.returncode == 0 and rf.get("format") == "text-rips-free" and rf["h0_essential"] == 1,
+          "rips_points: free on the blocks map: the free sites form one component")
 
 
 print("all checks passed" if not failures else f"{failures} check(s) failed")

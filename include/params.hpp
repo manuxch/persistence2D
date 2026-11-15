@@ -14,7 +14,8 @@ struct Params {
     std::vector<std::string> inputs;   // map files (the command line overrides `input`)
     ObstacleColor obstacle_color = ObstacleColor::dark;
     PersistenceOptions persistence;    // metric, periodic, boundary_obstacle, connectivity
-    ContinuumOptions continuum;        // pixel, grain, clearance (filtrations height and centres)
+    ContinuumOptions continuum;        // pixel, grain, clearance (filtrations height and centres), max_radius (rips)
+    bool rips_obstacles = true;        // rips on a lattice map: the points are the obstacle sites (true) or the free sites
     std::string bars_file = "bars.csv";
     std::string betti_file = "betti.csv";
     std::string summary_file = "summary.csv";

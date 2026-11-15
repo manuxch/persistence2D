@@ -503,6 +503,50 @@ void test_continuum() {
     }
 }
 
+void test_rips_grid() {
+    std::cout << "rips on lattice maps\n";
+    // Minimum image in y: two points 0.4 apart across the periodic y boundary join at radius 0.2.
+    PointCloud pc;
+    pc.Lx = pc.Ly = 10.0;
+    pc.periodic_x = pc.periodic_y = true;
+    pc.points = {{5.0, 0.2}, {5.0, 9.8}};
+    auto b = rips_persistence(pc, 1.0);
+    bool ok = false;
+    for (const auto& x : b) ok = ok || (x.dim == 0 && !x.essential && std::abs(x.death - 0.2) < 1e-12);
+    check(ok, "rips: minimum image in y (H0 dies at 0.2)");
+    pc.periodic_y = false;
+    b = rips_persistence(pc, 1.0);
+    int ess0 = 0;
+    for (const auto& x : b) ess0 += x.dim == 0 && x.essential;
+    check(ess0 == 2, "rips: open in y, the two points stay apart up to max_radius");
+
+    // A ring of 8 obstacles around one free site: the loop closes at radius 0.5 (unit edges) and is filled at 1
+    // (the edges of length 2 across the ring complete the triangles).
+    Grid g = empty_grid(12, 12);
+    for (std::size_t y = 4; y < 7; ++y)
+        for (std::size_t x = 4; x < 7; ++x)
+            if (!(x == 5 && y == 5)) g.obstacle[g.index(x, y)] = 1;
+    const PointCloud obs = point_cloud(g, true, true);
+    check(obs.points.size() == 8 && obs.periodic_x && obs.periodic_y, "point_cloud: obstacle sites, periodic in x and y");
+    b = rips_persistence(obs, 2.0);
+    int h1 = 0;
+    bool ring = false;
+    for (const auto& x : b)
+        if (x.dim == 1) {
+            ++h1;
+            ring = ring || (!x.essential && std::abs(x.birth - 0.5) < 1e-12 && std::abs(x.death - 1.0) < 1e-12);
+        }
+    check(h1 == 1 && ring, std::format("rips: the ring of 8 obstacles gives one H1 bar [0.5, 1) (got {} H1 bars)", h1));
+    const PointCloud fr = point_cloud(g, true, false);
+    check(fr.points.size() == 144 - 8, "point_cloud: rips_points free takes the complement");
+
+    // Periodic and open complexes of the same random map differ (bars across the boundary).
+    const Grid rg = random_grid(24, 24, 0.4, 5);
+    const auto bp = rips_persistence(point_cloud(rg, true, true), 2.0);
+    const auto bo = rips_persistence(point_cloud(rg, false, true), 2.0);
+    check(bp.size() != bo.size(), std::format("rips: periodic and open lattice clouds differ ({} vs {} bars)", bp.size(), bo.size()));
+}
+
 void test_rips() {
     std::cout << "rips\n";
     auto make = [](double Lx, double Ly, bool periodic, std::vector<std::array<double, 2>> c) {
@@ -610,7 +654,7 @@ void test_rips() {
     check(std::abs(rips_default_radius(make(10, 6, true, {{1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}, {6, 5}})) - 1.5 * std::sqrt(10.0)) < 1e-12,
           "rips: default radius = 1.5 x mean spacing");
     const Params p = parse_params("filtration: rips\nmax_radius: 1.25\n");
-    check(p.persistence.filtration == Filtration::rips && p.continuum.max_radius == 1.25 && describe(p) == "filtration=rips max_radius=1.25",
+    check(p.persistence.filtration == Filtration::rips && p.continuum.max_radius == 1.25 && describe(p) == "filtration=rips max_radius=1.25 rips_points=obstacles periodic=true obstacle=dark",
           "params: filtration rips, max_radius");
     bool bad = false;
     try { parse_params("max_radius: -1\n"); } catch (const std::runtime_error&) { bad = true; }
@@ -630,6 +674,7 @@ int main() {
         test_quantile_and_params();
         test_continuum();
         test_rips();
+        test_rips_grid();
     } catch (const std::exception& e) {
         std::cout << "  FAIL exception: " << e.what() << '\n';
         ++failures;
